@@ -206,35 +206,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // 定义检查项配置
   const CHECK_ITEMS = {
     mescius: {
-      type: 'warning',
       label: 'Mescius',
       check: (content) => content.toLowerCase().includes('mescius'),
       message: '包含 "mescius" 字样'
     },
     span: {
-      type: 'error',
-      label: 'HTML标签',
+      label: 'SPAN 标签',
       check: (content) => content.includes('</span>'),
-      message: '包含HTML标签 "</span>"'
+      message: '包含 SPAN 标签'
     },
+
     dsProducts: {
-      type: 'warning',
-      label: '旧产品名称',
+      label: '包含 DS 产品字样',
       check: (content) => {
         const products = ['DsExcel', 'DsPdf', 'DsWord'];
         return products.some(p => content.includes(p));
+
       },
       message: (content) => {
         const products = ['DsExcel', 'DsPdf', 'DsWord'];
         const found = products.filter(p => content.includes(p));
-        return `包含旧产品名称: ${found.join(', ')}`;
+        return `包含 DS 产品字样: ${found.join(', ')}`;
       }
     },
     base64: {
-      type: 'error',
       label: 'Base64',
       check: (content) => content.includes(';base64'),
-      message: '包含base64编码内容'
+      message: '可能包含 base64 编码内容，请仔细检查，也可能是代码中包含'
     }
   };
 
@@ -245,18 +243,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabHeader = document.querySelector('.tab-header');
     const tabContent = document.querySelector('.tab-content');
     const progressContainer = document.querySelector('.search-progress-container');
+    const clearResultsContainer = document.querySelector('.clear-results-container');
     
     // 清空现有内容
     tabHeader.innerHTML = '';
     tabContent.innerHTML = '';
     progressContainer.innerHTML = '';
     
-    // 添加清除按钮
-    const clearButton = document.createElement('button');
-    clearButton.className = 'clear-results';
-    clearButton.textContent = '清除结果';
+    // 添加清除按钮到底部容器
+    clearResultsContainer.innerHTML = `
+      <button class="clear-results">清除所有结果</button>
+    `;
+    const clearButton = clearResultsContainer.querySelector('.clear-results');
     clearButton.onclick = clearAllResults;
-    tabHeader.appendChild(clearButton);
   }
 
   function clearAllResults() {
@@ -268,28 +267,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabHeader = document.querySelector('.tab-header');
     const tabContent = document.querySelector('.tab-content');
     
-    // 检查是否已存在相应的tab
     let tabButton = tabHeader.querySelector(`[data-tab="${checkType}"]`);
     let tabPanel = tabContent.querySelector(`[data-tab="${checkType}"]`);
     
-    // 如果没有结果，移除相应的tab
     if (results.length === 0) {
       if (tabButton) tabButton.remove();
       if (tabPanel) tabPanel.remove();
       return;
     }
     
-    // 创建新的tab按钮和面板
     if (!tabButton) {
       tabButton = document.createElement('button');
       tabButton.className = 'tab-button';
       tabButton.setAttribute('data-tab', checkType);
       tabButton.innerHTML = `
         <span>${CHECK_ITEMS[checkType].label}</span>
-        <span class="count">0</span>
+        <span class="count">${results.length}</span>
+        <span class="close">×</span>
       `;
+      
+      // 添加关闭按钮事件
+      const closeBtn = tabButton.querySelector('.close');
+      closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        checkResults.delete(checkType);
+        tabButton.remove();
+        tabPanel?.remove();
+        
+        // 如果还有其他tab，切换到第一个
+        const firstTab = tabHeader.querySelector('.tab-button');
+        if (firstTab) {
+          switchTab(firstTab.getAttribute('data-tab'));
+        }
+      };
+      
       tabButton.onclick = () => switchTab(checkType);
-      tabHeader.insertBefore(tabButton, tabHeader.lastChild);
+      tabHeader.appendChild(tabButton);
+    } else {
+      tabButton.querySelector('.count').textContent = results.length;
     }
     
     if (!tabPanel) {
@@ -299,13 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tabContent.appendChild(tabPanel);
     }
     
-    // 更新计数
-    tabButton.querySelector('.count').textContent = results.length;
-    
-    // 更新内容
     updateTabContent(checkType, results);
     
-    // 如果是第一个tab，激活它
     if (tabHeader.querySelectorAll('.tab-button').length === 1) {
       switchTab(checkType);
     }
@@ -326,11 +336,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateTabContent(checkType, results) {
     const tabPanel = document.querySelector(`.tab-panel[data-tab="${checkType}"]`);
-    const config = CHECK_ITEMS[checkType];
+    tabPanel.innerHTML = ''; // 清空现有内容
     
     results.forEach(result => {
       const resultItem = document.createElement('div');
-      resultItem.className = `result-item check-item ${config.type}`;
+      resultItem.className = 'result-item';
       
       resultItem.innerHTML = `
         <div class="result-title">${result.title}</div>
@@ -377,7 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
               Object.entries(CHECK_ITEMS).forEach(([key, config]) => {
                 if (config.check(content)) {
                   const result = {
-                    type: config.type,
                     title,
                     message: typeof config.message === 'function' ? 
                       config.message(content) : config.message,
