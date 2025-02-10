@@ -186,11 +186,125 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 事件监听
+  // 添加一个变量来跟踪当前搜索
+  let currentSearch = null;
+
+  // 修改 performRoutineCheck 函数
+  async function performRoutineCheck() {
+    // 如果有正在进行的搜索，取消它
+    if (currentSearch) {
+      currentSearch.abort = true;
+    }
+    
+    // 创建新的搜索上下文
+    currentSearch = {
+      abort: false
+    };
+    
+    const thisSearch = currentSearch;
+    createTabsContainer();
+    
+    try {
+      const currentUrl = await getCurrentTabUrl();
+      const productID = getProductIDFromURL(currentUrl);
+      
+      if (!productID) {
+        throw new Error('无法获取产品ID');
+      }
+
+      const versions = await getDocVersions(productID);
+      let processedCount = 0;
+      const totalCount = versions.toc.tocItemDrafts.length;
+      
+      // 更新初始进度
+      updateProgress(processedCount, totalCount);
+      
+      for (const item of versions.toc.tocItemDrafts) {
+        // 检查是否被取消
+        if (thisSearch.abort) {
+          return;
+        }
+        
+        if (item.id && item.hasDoc) {
+          try {
+            const docContent = await getDocContent(item.id);
+            processedCount++;
+            updateProgress(processedCount, totalCount);
+            
+            if (docContent && docContent.markdownContent) {
+              const content = docContent.markdownContent;
+              const title = docContent.title || item.text || item.displayName;
+              
+              // 检查每个配置项
+              Object.entries(CHECK_ITEMS).forEach(([key, config]) => {
+                if (config.check(content)) {
+                  const result = {
+                    title,
+                    message: typeof config.message === 'function' ? 
+                      config.message(content) : config.message,
+                    path: item.documentPath,
+                    tocItemId: item.tocItemId,
+                    productID,
+                    id: `${item.id}-${key}` // 用于去重
+                  };
+                  
+                  // 获取或创建该类型的结果集
+                  const typeResults = checkResults.get(key) || new Map();
+                  // 使用id去重
+                  if (!typeResults.has(result.id)) {
+                    typeResults.set(result.id, result);
+                    checkResults.set(key, typeResults);
+                    // 更新对应的tab
+                    updateTab(key, Array.from(typeResults.values()));
+                  }
+                }
+              });
+            }
+          } catch (error) {
+            console.error(`处理文档 ${item.id} 时出错:`, error);
+            continue;
+          }
+        }
+      }
+      
+      // 确保最后显示100%的进度
+      updateProgress(totalCount, totalCount);
+      
+    } catch (error) {
+      console.error('检查错误:', error);
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error';
+      errorDiv.textContent = `检查出错：${error.message}`;
+      document.querySelector('.tab-content').appendChild(errorDiv);
+    } finally {
+      // 清理搜索状态
+      if (currentSearch === thisSearch) {
+        currentSearch = null;
+      }
+    }
+  }
+
+  // 修改按钮事件监听
+  routineCheckButton.addEventListener('click', () => {
+    routineCheckButton.disabled = true;
+    routineCheckButton.textContent = '检查中...';
+    
+    performRoutineCheck().finally(() => {
+      routineCheckButton.disabled = false;
+      routineCheckButton.textContent = '常规检查';
+    });
+  });
+
   searchButton.addEventListener('click', () => {
     const searchText = searchInput.value.trim();
     if (searchText) {
-      performSearch(searchText);
+      searchButton.disabled = true;
+      searchButton.textContent = '搜索中...';
+      
+      performRoutineCheck().finally(() => {
+        searchButton.disabled = false;
+        searchButton.textContent = '搜索';
+      });
     }
   });
 
@@ -198,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') {
       const searchText = searchInput.value.trim();
       if (searchText) {
-        performSearch(searchText);
+        searchButton.click();
       }
     }
   });
@@ -356,76 +470,4 @@ document.addEventListener('DOMContentLoaded', () => {
       tabPanel.appendChild(resultItem);
     });
   }
-
-  async function performRoutineCheck() {
-    createTabsContainer();
-    
-    try {
-      const currentUrl = await getCurrentTabUrl();
-      const productID = getProductIDFromURL(currentUrl);
-      
-      if (!productID) {
-        throw new Error('无法获取产品ID');
-      }
-
-      const versions = await getDocVersions(productID);
-      let processedCount = 0;
-      const totalCount = versions.toc.tocItemDrafts.length;
-      
-      for (const item of versions.toc.tocItemDrafts) {
-        if (item.id && item.hasDoc) {
-          try {
-            const docContent = await getDocContent(item.id);
-            processedCount++;
-            updateProgress(processedCount, totalCount);
-            
-            if (docContent && docContent.markdownContent) {
-              const content = docContent.markdownContent;
-              const title = docContent.title || item.text || item.displayName;
-              
-              // 检查每个配置项
-              Object.entries(CHECK_ITEMS).forEach(([key, config]) => {
-                if (config.check(content)) {
-                  const result = {
-                    title,
-                    message: typeof config.message === 'function' ? 
-                      config.message(content) : config.message,
-                    path: item.documentPath,
-                    tocItemId: item.tocItemId,
-                    productID,
-                    id: `${item.id}-${key}` // 用于去重
-                  };
-                  
-                  // 获取或创建该类型的结果集
-                  const typeResults = checkResults.get(key) || new Map();
-                  // 使用id去重
-                  if (!typeResults.has(result.id)) {
-                    typeResults.set(result.id, result);
-                    checkResults.set(key, typeResults);
-                    // 更新对应的tab
-                    updateTab(key, Array.from(typeResults.values()));
-                  }
-                }
-              });
-            }
-          } catch (error) {
-            console.error(`处理文档 ${item.id} 时出错:`, error);
-            continue;
-          }
-        }
-      }
-      
-    } catch (error) {
-      console.error('检查错误:', error);
-      const errorDiv = document.createElement('div');
-      errorDiv.className = 'error';
-      errorDiv.textContent = `检查出错：${error.message}`;
-      document.querySelector('.tab-content').appendChild(errorDiv);
-    }
-  }
-
-  // 添加按钮事件监听
-  routineCheckButton.addEventListener('click', () => {
-    performRoutineCheck();
-  });
 }); 
