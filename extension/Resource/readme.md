@@ -1,0 +1,1 @@
+Resource folder 里的内容，主要用于给 AI 参考
