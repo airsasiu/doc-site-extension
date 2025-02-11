@@ -251,11 +251,66 @@ body {
 }
 
 .search-progress-container {
-  padding: 8px 16px;
+  padding: 12px 16px;
   background: white;
   border-bottom: 1px solid #eee;
   font-size: 12px;
   color: #666;
+}
+
+.progress-bar-container {
+  margin-top: 8px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  height: 4px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #1890ff;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.bottom-actions {
+  padding: 16px;
+  background: white;
+  border-top: 1px solid #eee;
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
+}
+
+.recheck-button {
+  width: 100%;
+  padding: 8px;
+  background: #52c41a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.recheck-button:hover {
+  background: #73d13d;
+}
+
+.recheck-button:disabled {
+  background: #d9d9d9;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.recheck-stats {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  margin-top: 4px;
 }
 
 .clear-results-container {

@@ -71,16 +71,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 创建或更新进度显示
   function updateProgress(processedCount, totalCount) {
-    let progressContainer = document.querySelector('.search-progress-container');
-    let progressDiv = progressContainer.querySelector('.search-progress');
+    const progressContainer = document.querySelector('.search-progress-container');
+    if (!progressContainer) return;
     
-    if (!progressDiv) {
-      progressDiv = document.createElement('div');
-      progressDiv.className = 'search-progress';
-      progressContainer.appendChild(progressDiv);
+    let progressText = progressContainer.querySelector('.progress-text');
+    let progressBar = progressContainer.querySelector('.progress-bar');
+    
+    // 如果元素不存在，创建它们
+    if (!progressText) {
+      progressText = document.createElement('div');
+      progressText.className = 'progress-text';
+      progressContainer.appendChild(progressText);
     }
     
-    progressDiv.textContent = `检查进度：${processedCount}/${totalCount}`;
+    if (!progressBar) {
+      const barContainer = document.createElement('div');
+      barContainer.className = 'progress-bar-container';
+      progressBar = document.createElement('div');
+      progressBar.className = 'progress-bar';
+      barContainer.appendChild(progressBar);
+      progressContainer.appendChild(barContainer);
+    }
+    
+    const percentage = Math.round((processedCount / totalCount) * 100);
+    progressText.textContent = `检查进度：${processedCount}/${totalCount}`;
+    progressBar.style.width = `${percentage}%`;
   }
 
   // 在当前标签页导航到指定URL
@@ -347,6 +362,12 @@ document.addEventListener('DOMContentLoaded', () => {
       label: 'Base64',
       check: (content) => content.includes(';base64'),
       message: '可能包含 base64 编码内容，请仔细检查，也可能是代码中包含'
+    },
+
+    escapedAsterisks: {
+      label: '转义双星号',
+      check: (content) => content.includes('\\*\\*'),
+      message: '包含转义双星号 "\\*\\*"'
     }
   };
 
@@ -357,19 +378,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabHeader = document.querySelector('.tab-header');
     const tabContent = document.querySelector('.tab-content');
     const progressContainer = document.querySelector('.search-progress-container');
-    const clearResultsContainer = document.querySelector('.clear-results-container');
     
     // 清空现有内容
     tabHeader.innerHTML = '';
     tabContent.innerHTML = '';
-    progressContainer.innerHTML = '';
     
-    // 添加清除按钮到底部容器
-    clearResultsContainer.innerHTML = `
-      <button class="clear-results">清除所有结果</button>
+    // 重置进度条
+    progressContainer.innerHTML = `
+      <div class="progress-text"></div>
+      <div class="progress-bar-container">
+        <div class="progress-bar"></div>
+      </div>
     `;
-    const clearButton = clearResultsContainer.querySelector('.clear-results');
-    clearButton.onclick = clearAllResults;
+    
+    updateErrorStats();
   }
 
   function clearAllResults() {
@@ -433,6 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabHeader.querySelectorAll('.tab-button').length === 1) {
       switchTab(checkType);
     }
+    
+    updateErrorStats();
   }
 
   function switchTab(checkType) {
@@ -470,4 +494,117 @@ document.addEventListener('DOMContentLoaded', () => {
       tabPanel.appendChild(resultItem);
     });
   }
+
+  // 添加错误页面统计函数
+  function updateErrorStats() {
+    const uniquePages = new Set();
+    checkResults.forEach((results) => {
+      results.forEach((result) => {
+        uniquePages.add(`${result.productID}-${result.tocItemId}`);
+      });
+    });
+    
+    const recheckButton = document.querySelector('.recheck-button');
+    const recheckStats = document.querySelector('.recheck-stats');
+    const pageCount = uniquePages.size;
+    
+    recheckButton.textContent = `重新检查错误页面 (${pageCount})`;
+    recheckButton.disabled = pageCount === 0;
+    
+    if (pageCount > 0) {
+      const totalIssues = Array.from(checkResults.values())
+        .reduce((sum, results) => sum + results.size, 0);
+      recheckStats.textContent = `共 ${pageCount} 个页面，${totalIssues} 个问题`;
+    } else {
+      recheckStats.textContent = '';
+    }
+    
+    return uniquePages;
+  }
+
+  // 添加重新检查功能
+  async function recheckErrorPages() {
+    const uniquePages = updateErrorStats();
+    if (uniquePages.size === 0) return;
+    
+    // 如果有正在进行的搜索，取消它
+    if (currentSearch) {
+      currentSearch.abort = true;
+    }
+    
+    // 创建新的搜索上下文
+    currentSearch = {
+      abort: false
+    };
+    
+    const thisSearch = currentSearch;
+    const recheckButton = document.querySelector('.recheck-button');
+    recheckButton.disabled = true;
+    recheckButton.textContent = '重新检查中...';
+    
+    try {
+      const processedCount = 0;
+      const totalCount = uniquePages.size;
+      updateProgress(processedCount, totalCount);
+      
+      // 清除现有结果
+      checkResults.clear();
+      createTabsContainer();
+      
+      for (const pageId of uniquePages) {
+        if (thisSearch.abort) return;
+        
+        const [productID, tocItemId] = pageId.split('-');
+        try {
+          const docContent = await getDocContent(tocItemId);
+          
+          if (docContent && docContent.markdownContent) {
+            const content = docContent.markdownContent;
+            const title = docContent.title;
+            
+            Object.entries(CHECK_ITEMS).forEach(([key, config]) => {
+              if (config.check(content)) {
+                const result = {
+                  title,
+                  message: typeof config.message === 'function' ? 
+                    config.message(content) : config.message,
+                  path: docContent.documentPath,
+                  tocItemId,
+                  productID,
+                  id: `${tocItemId}-${key}`
+                };
+                
+                const typeResults = checkResults.get(key) || new Map();
+                if (!typeResults.has(result.id)) {
+                  typeResults.set(result.id, result);
+                  checkResults.set(key, typeResults);
+                  updateTab(key, Array.from(typeResults.values()));
+                }
+              }
+            });
+          }
+          
+          updateProgress(processedCount + 1, totalCount);
+        } catch (error) {
+          console.error(`重新检查页面 ${tocItemId} 时出错:`, error);
+          continue;
+        }
+      }
+      
+      updateProgress(totalCount, totalCount);
+      updateErrorStats();
+      
+    } catch (error) {
+      console.error('重新检查错误:', error);
+    } finally {
+      if (currentSearch === thisSearch) {
+        currentSearch = null;
+      }
+      recheckButton.disabled = false;
+      updateErrorStats();
+    }
+  }
+
+  // 添加重新检查按钮事件监听
+  document.querySelector('.recheck-button').addEventListener('click', recheckErrorPages);
 }); 
