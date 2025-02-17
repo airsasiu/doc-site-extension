@@ -6,6 +6,7 @@ export class TabManager {
   }
 
   getTab(id) {
+    if (!id) return null;
     return this.tabContent.querySelector(`#${id}`);
   }
 
@@ -14,7 +15,7 @@ export class TabManager {
     let tabPanel = this.getTab(id);
     if (tabPanel) {
       // 更新已存在标签的计数
-      const tabButton = this.tabHeader.querySelector(`[data-tabid="${id}"]`);
+      const tabButton = this.tabHeader.querySelector(`[data-tab-id="${id}"]`);
       if (tabButton) {
         const countSpan = tabButton.querySelector('.count');
         if (countSpan) {
@@ -43,19 +44,26 @@ export class TabManager {
 
     // 添加关闭按钮事件
     const closeBtn = tabButton.querySelector('.close');
-    closeBtn.addEventListener('click', (e) => {
+    const closeHandler = (e) => {
       e.stopPropagation();
       tabPanel.remove();
       tabButton.remove();
-    });
+      // 移除事件监听器
+      closeBtn.removeEventListener('click', closeHandler);
+      tabButton.removeEventListener('click', clickHandler);
+    };
+    closeBtn.addEventListener('click', closeHandler);
 
     // 添加点击事件
-    tabButton.addEventListener('click', () => this.switchTab(id));
+    const clickHandler = () => this.switchTab(id);
+    tabButton.addEventListener('click', clickHandler);
 
     return tabPanel;
   }
 
   switchTab(tabId) {
+    if (!tabId) return;
+    
     // 切换标签激活状态
     const buttons = this.tabHeader.querySelectorAll('.tab-button');
     buttons.forEach(button => {
@@ -74,13 +82,19 @@ export class TabManager {
     this.tabContent.innerHTML = '';
   }
 
-  // 添加更新计数的方法
   updateCount(id, count) {
-    const tabButton = this.tabHeader.querySelector(`[data-tabid="${id}"]`);
+    if (!id) return;
+    
+    const tabButton = this.tabHeader.querySelector(`[data-tab-id="${id}"]`);
     if (tabButton) {
       const countSpan = tabButton.querySelector('.count');
       if (countSpan) {
-        countSpan.textContent = count;
+        if (count > 0) {
+          countSpan.textContent = count;
+          countSpan.style.display = 'inline-flex';
+        } else {
+          countSpan.style.display = 'none';
+        }
       }
     }
   }

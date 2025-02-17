@@ -64,11 +64,12 @@ class BaseComponent {
     resultElement.className = 'result-item';
     resultElement.innerHTML = `
       <div class="result-title">${result.title}</div>
-      <div class="result-content">${result.message || result.content}</div>
-      <div class="result-path">
-        <a href="${result.url}" target="_blank">查看文档</a>
-      </div>
+      <div class="result-content">${result.message}</div>
+      <div class="result-path">${result.path}</div>
     `;
+    resultElement.addEventListener('click', async () => {
+        await URLUtils.navigateCurrentTab(result.url);
+      });
     tab.appendChild(resultElement);
   }
 

@@ -21,7 +21,10 @@ class DocumentSearchComponent extends BaseComponent {
             title: content.title || item.text || item.displayName,
             message: config.getMessage ? config.getMessage(content.markdownContent) : '',
             content: config.getContent ? config.getContent(content.markdownContent) : '',
-            url: this.getDocUrl(productID, item.id, item.tocItemId)
+            url: this.getDocUrl(productID, item.id, item.tocItemId),
+            path: item.documentPath,
+            tocItemId: item.tocItemId,
+            productID: productID
           };
           
           const typeResults = this.searchResults.get(config.id);
@@ -38,9 +41,18 @@ class DocumentSearchComponent extends BaseComponent {
   updateTypeTab(searchId, label, results) {
     if (results.length === 0) return;
 
-    const tab = this.tabManager.getTab(searchId) || 
-      this.tabManager.createTab(searchId, label, results.length);
+    // 先检查是否存在标签页
+    let tab = this.tabManager.getTab(searchId);
+    
+    if (tab) {
+      // 如果标签页已存在，更新计数
+      this.tabManager.updateCount(searchId, results.length);
+    } else {
+      // 如果标签页不存在，创建新的
+      tab = this.tabManager.createTab(searchId, label, results.length);
+    }
 
+    // 更新内容
     tab.innerHTML = '';
     results.forEach(result => this.addResultItem(tab, result));
   }
