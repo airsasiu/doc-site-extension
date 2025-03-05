@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "sidePanel",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
     "https://docs.grapecity.com.cn/*"
@@ -26,10 +27,21 @@
         "mac": "Alt+Comma"
       },
       "description": "打开搜索侧边栏"
+    },
+    "format_code": {
+      "suggested_key": {
+        "default": "Alt+Shift+F",
+        "mac": "Alt+Shift+F"
+      },
+      "description": "格式化选中的代码"
     }
   },
   "action": {
     "default_title": "DocSite Search Helper"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"

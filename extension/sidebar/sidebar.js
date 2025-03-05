@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const progressBar = new ProgressBar('.search-progress-container');
   const searchComponent = new SearchComponent(progressBar);
   const checkComponent = new CheckComponent(progressBar);
-
+  
   // 绑定事件监听
   document.querySelector('.search-button')
     .addEventListener('click', () => searchComponent.handleSearch());
