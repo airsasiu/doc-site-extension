@@ -13,108 +13,36 @@ chrome.commands.onCommand.addListener(async (command) => {
       console.log('Active tab:', tabs[0]);
       const activeTab = tabs[0];
       
-      // 使用内联代码注入prettier
-      console.log('Injecting prettier directly...');
-      
       // 首先注入prettier库
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
-        func: injectPrettier
+        files: ['scripts/prettier/standalone.js', 'scripts/prettier/parser-babel.js']
       });
       
-      // 然后执行格式化
-      console.log('Executing format function...');
+      // 然后注入并执行格式化脚本
+      console.log('Injecting format-code.js...');
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
-        func: formatCode
+        files: ['scripts/format-code.js']
       });
       
-      console.log('Format command completed');
+      console.log('Format script injected and executed');
     } catch (error) {
       console.error('Error during format operation:', error);
     }
   }
 });
 
-// 注入prettier库
-function injectPrettier() {
-  return new Promise((resolve) => {
-    // 如果prettier已经加载，直接返回
-    if (window.prettier && window.prettierPlugins) {
-      console.log('Prettier already loaded');
-      resolve();
-      return;
-    }
-    
-    console.log('Loading prettier from CDN...');
-    
-    // 加载prettier
-    const prettierScript = document.createElement('script');
-    prettierScript.src = 'https://cdn.jsdelivr.net/npm/prettier@2.8.8/standalone.js';
-    prettierScript.onload = () => {
-      console.log('Prettier loaded');
-      
-      // 加载babel解析器
-      const babelScript = document.createElement('script');
-      babelScript.src = 'https://cdn.jsdelivr.net/npm/prettier@2.8.8/parser-babel.js';
-      babelScript.onload = () => {
-        console.log('Babel parser loaded');
-        resolve();
-      };
-      document.head.appendChild(babelScript);
-    };
-    document.head.appendChild(prettierScript);
-  });
-}
-
-// 格式化代码
-function formatCode() {
-  console.log('formatCode function called');
-  try {
-    // 获取选中的文本
-    const selection = window.getSelection();
-    const selectedText = selection.toString();
-    
-    console.log('Selected text:', selectedText ? `${selectedText.substring(0, 50)}...` : 'none');
-    
-    if (!selectedText) {
-      showNotification('没有选中任何文本', 'error');
-      return;
-    }
-    
-    // 检查prettier是否可用
-    if (typeof prettier === 'undefined') {
-      console.error('Prettier is not defined!');
-      showNotification('格式化库未加载', 'error');
-      return;
-    }
-    
-    // 使用prettier格式化代码
-    console.log('Formatting code with prettier...');
-    const formattedCode = prettier.format(selectedText, {
-      parser: "babel",
-      plugins: prettierPlugins,
-      semi: true,
-      singleQuote: true,
-      tabWidth: 2
-    });
-    
-    console.log('Code formatted successfully');
-    
-    // 替换选中的文本
-    if (selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      range.deleteContents();
-      range.insertNode(document.createTextNode(formattedCode));
-      console.log('Replaced selected text with formatted code');
-    }
-    
-    showNotification('代码格式化成功', 'success');
-  } catch (error) {
-    console.error("格式化代码时出错:", error);
-    showNotification(`格式化失败: ${error.message}`, 'error');
+// 在文档站点页面加载时注入span标签检测脚本
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url.includes('docs.grapecity.com.cn')) {
+    console.log('文档站点页面加载完成，注入span标签检测脚本');
+    chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: ['scripts/span-observer.js']
+    }).catch(error => console.error('注入span-observer.js时出错:', error));
   }
-}
+});
 
 // 显示通知
 function showNotification(message, type) {
