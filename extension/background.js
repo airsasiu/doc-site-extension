@@ -30,17 +30,35 @@ chrome.commands.onCommand.addListener(async (command) => {
     } catch (error) {
       console.error('Error during format operation:', error);
     }
-  }
-});
-
-// 在文档站点页面加载时注入span标签检测脚本
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url.includes('docs.grapecity.com.cn')) {
-    console.log('文档站点页面加载完成，注入span标签检测脚本');
-    chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      files: ['scripts/span-observer.js']
-    }).catch(error => console.error('注入span-observer.js时出错:', error));
+  } else if (command === "check_span_tags") {
+    console.log('Check span tags command triggered');
+    
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const activeTab = tabs[0];
+      
+      // 首先确保脚本已注入
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ['scripts/span-checker.js']
+      });
+      
+      // 然后执行检查函数
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        func: () => {
+          if (typeof window.checkForSpanTags === 'function') {
+            window.checkForSpanTags();
+          } else {
+            console.error('checkForSpanTags 函数未找到');
+          }
+        }
+      });
+      
+      console.log('Span check completed');
+    } catch (error) {
+      console.error('Error during span check operation:', error);
+    }
   }
 });
 

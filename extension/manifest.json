@@ -23,8 +23,8 @@
   "commands": {
     "_execute_side_panel": {
       "suggested_key": {
-        "default": "Alt+Comma",
-        "mac": "Alt+Comma"
+        "default": "Alt+Shift+Comma",
+        "mac": "Alt+Shift+Comma"
       },
       "description": "打开搜索侧边栏"
     },
@@ -34,10 +34,25 @@
         "mac": "Alt+Shift+F"
       },
       "description": "格式化选中的代码"
+    },
+    "check_span_tags": {
+      "suggested_key": {
+        "default": "Alt+Shift+S",
+        "mac": "Alt+Shift+S"
+      },
+      "description": "检查 span 标签"
+    },
+    "open_help": {
+      "suggested_key": {
+        "default": "Alt+Shift+Q",
+        "mac": "Alt+Shift+Q"
+      },
+      "description": "打开帮助文档"
     }
   },
   "action": {
-    "default_title": "DocSite Search Helper"
+    "default_title": "DocSite Search Helper",
+    "default_popup": "help/popup.html"
   },
   "background": {
     "service_worker": "background.js",
