@@ -104,9 +104,9 @@ class DocumentSearchComponent extends BaseComponent {
             <div class="result-title">${result.title}</div>
             <div class="result-content">${result.content}</div>
           `;
-          resultDiv.addEventListener('click', () => {
+          resultDiv.addEventListener('click', async () => {
             if (result.url) {
-              window.open(result.url, '_blank');
+              await this.navigateCurrentTab(result.url);
             }
           });
           contentDiv.appendChild(resultDiv);
@@ -141,9 +141,9 @@ class DocumentSearchComponent extends BaseComponent {
         <div class="result-content">${result.content}</div>
         <div class="result-path">${result.path}</div>
       `;
-      resultDiv.addEventListener('click', () => {
+      resultDiv.addEventListener('click', async () => {
         if (result.url) {
-          window.open(result.url, '_blank');
+          await this.navigateCurrentTab(result.url);
         }
       });
       panel.appendChild(resultDiv);
@@ -235,6 +235,20 @@ class DocumentSearchComponent extends BaseComponent {
         }
       });
     });
+  }
+
+  // 添加一个新方法用于在当前标签页导航
+  async navigateCurrentTab(url) {
+    if (!url) return;
+    
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0]) {
+        await chrome.tabs.update(tabs[0].id, { url: url });
+      }
+    } catch (error) {
+      console.error('导航错误:', error);
+    }
   }
 }
 

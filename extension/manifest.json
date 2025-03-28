@@ -2,12 +2,13 @@
   "manifest_version": 3,
   "name": "DocSite Search Helper",
   "version": "1.0",
-  "description": "在文档站点中搜索 Markdown 内容。支持实时搜索预览，快速定位文档位置。按 Alt+` 打开搜索侧边栏。",
+  "description": "在文档站点中搜索 Markdown 内容。支持实时搜索预览，快速定位文档位置。",
   "permissions": [
     "activeTab",
     "sidePanel",
     "tabs",
-    "scripting"
+    "scripting",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://docs.grapecity.com.cn/*"
@@ -21,13 +22,6 @@
     "128": "icons/icon128.png"
   },
   "commands": {
-    "_execute_side_panel": {
-      "suggested_key": {
-        "default": "Alt+Shift+Comma",
-        "mac": "Alt+Shift+Comma"
-      },
-      "description": "打开搜索侧边栏"
-    },
     "format_code": {
       "suggested_key": {
         "default": "Alt+Shift+F",
@@ -42,11 +36,21 @@
       },
       "description": "检查 span 标签"
     },
-    "open_help": {
+    "upload_images": {
       "suggested_key": {
-        "default": "Alt+Shift+Q",
-        "mac": "Alt+Shift+Q"
+        "default": "Alt+Shift+U",
+        "mac": "Alt+Shift+U"
       },
+      "description": "上传 Markdown 中的图片"
+    },
+    "extract_link": {
+      "suggested_key": {
+        "default": "Alt+Shift+X",
+        "mac": "Alt+Shift+X"
+      },
+      "description": "提取选中文本的链接"
+    },
+    "open_help": {
       "description": "打开帮助文档"
     }
   },
