@@ -224,3 +224,25 @@ function showNotification(message, type) {
     notification.remove();
   }, 3000);
 }
+
+// 添加消息监听器来处理图片请求
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'fetchImage') {
+    fetch(request.url)
+      .then(response => response.blob())
+      .then(blob => {
+        // 将 blob 转换为 base64
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          sendResponse({ success: true, data: reader.result });
+        };
+        reader.readAsDataURL(blob);
+        return true; // 保持消息通道打开
+      })
+      .catch(error => {
+        console.error('获取图片失败:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // 保持消息通道打开
+  }
+});

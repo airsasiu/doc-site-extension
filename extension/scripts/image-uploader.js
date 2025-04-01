@@ -161,67 +161,33 @@ async function uploadImage(imageUrl, rootId) {
   try {
     console.log('开始上传图片:', imageUrl);
     
-    // 使用 background 脚本代理获取图片，避免跨域问题
     let blob;
     
-    try {
-      // 尝试直接获取图片
-      const response = await fetch(imageUrl, { 
-        mode: 'cors',
-        credentials: 'include'
+    // 通过 background script 获取图片
+    console.log('通过 background script 获取图片...');
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ type: 'fetchImage', url: imageUrl }, response => {
+        if (response && response.success) {
+          resolve(response);
+        } else {
+          reject(new Error(response ? response.error : '获取图片失败'));
+        }
       });
-      
-      if (!response.ok) {
-        throw new Error(`获取图片失败: ${response.status}`);
-      }
-      
-      blob = await response.blob();
-      console.log('直接获取图片成功');
-    } catch (fetchError) {
-      console.warn('直接获取图片失败，尝试使用代理方式:', fetchError);
-      
-      // 如果直接获取失败，尝试使用 background 脚本代理获取
-      try {
-        // 创建一个 img 元素来加载图片
-        const imgBlob = await new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              canvas.width = img.width;
-              canvas.height = img.height;
-              
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0);
-              
-              canvas.toBlob(blob => {
-                if (blob) {
-                  resolve(blob);
-                } else {
-                  reject(new Error('无法从 canvas 创建 blob'));
-                }
-              }, 'image/png');
-            } catch (e) {
-              reject(e);
-            }
-          };
-          
-          img.onerror = () => {
-            reject(new Error('图片加载失败'));
-          };
-          
-          img.src = imageUrl;
-        });
-        
-        blob = imgBlob;
-        console.log('通过 canvas 获取图片成功');
-      } catch (imgError) {
-        console.error('所有获取图片方法都失败:', imgError);
-        throw new Error(`无法获取图片: ${imgError.message}`);
-      }
+    });
+    
+    // 将 base64 转换回 blob
+    const base64Data = response.data.split(',')[1];
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
     }
+    
+    // 根据图片类型设置 MIME type
+    const isGif = imageUrl.toLowerCase().endsWith('.gif');
+    blob = new Blob([bytes], { type: isGif ? 'image/gif' : 'image/png' });
+    
+    console.log('成功获取图片数据');
     
     // 获取并清理文件名
     const originalFilename = getFilenameFromUrl(imageUrl);
