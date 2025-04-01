@@ -7,6 +7,7 @@ class DocumentSearchComponent extends BaseComponent {
     this.tabHeader = document.querySelector('.tab-header');
     this.tabContent = document.querySelector('.tab-content');
     this.currentView = 'list'; // 默认列表视图
+    this.markedResults = new Set(); // 存储已标记的结果
     this.initViewToggle();
   }
 
@@ -31,6 +32,7 @@ class DocumentSearchComponent extends BaseComponent {
 
   clearResults() {
     this.searchResults.clear();
+    this.markedResults.clear();
     if (this.tabHeader) {
       this.tabHeader.innerHTML = '';
     }
@@ -136,16 +138,33 @@ class DocumentSearchComponent extends BaseComponent {
     results.forEach(result => {
       const resultDiv = document.createElement('div');
       resultDiv.className = 'result-item';
+      const resultId = `${result.productID}-${result.tocItemId}`;
+      
+      if (this.markedResults.has(resultId)) {
+        resultDiv.classList.add('marked');
+      }
+
       resultDiv.innerHTML = `
-        <div class="result-title">${result.title}</div>
-        <div class="result-content">${result.content}</div>
-        <div class="result-path">${result.path}</div>
+        <div class="result-content-wrapper">
+          <div class="result-title">${result.title}</div>
+          <div class="result-content">${result.content}</div>
+          <div class="result-path">${result.path}</div>
+        </div>
+        <div class="result-actions">
+          <button class="mark-button">${this.markedResults.has(resultId) ? '取消标记' : '标记为已解决'}</button>
+        </div>
       `;
-      resultDiv.addEventListener('click', async () => {
-        if (result.url) {
+
+      // 添加点击事件处理
+      resultDiv.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('mark-button')) {
+          e.stopPropagation();
+          this.toggleMark(resultId, resultDiv);
+        } else if (result.url) {
           await this.navigateCurrentTab(result.url);
         }
       });
+
       panel.appendChild(resultDiv);
     });
   }
@@ -203,6 +222,20 @@ class DocumentSearchComponent extends BaseComponent {
     panels.forEach(panel => {
       panel.classList.toggle('active', panel.id === tabId);
     });
+  }
+
+  // 切换标记状态
+  toggleMark(resultId, element) {
+    // 直接移除该条结果
+    element.remove();
+    // 更新当前标签页的结果
+    const currentTab = document.querySelector('.tab-button.active');
+    if (currentTab) {
+      const tabId = currentTab.getAttribute('data-tab');
+      const results = Array.from(this.searchResults.get(tabId)?.values() || [])
+        .filter(r => `${r.productID}-${r.tocItemId}` !== resultId);
+      this.updateTypeTab(tabId, this.getTabLabel(tabId), results);
+    }
   }
 
   // 核心搜索方法
