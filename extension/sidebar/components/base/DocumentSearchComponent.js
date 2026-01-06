@@ -135,38 +135,136 @@ class DocumentSearchComponent extends BaseComponent {
 
   // 渲染列表视图
   renderListView(results, panel) {
+    // 添加虚拟滚动支持
+    if (results.length > 50) {
+      this.renderVirtualListView(results, panel);
+    } else {
+      // 结果较少时使用传统渲染方式
+      this.renderTraditionalListView(results, panel);
+    }
+  }
+
+  // 传统渲染方式（适用于结果较少的情况）
+  renderTraditionalListView(results, panel) {
     results.forEach(result => {
-      const resultDiv = document.createElement('div');
-      resultDiv.className = 'result-item';
-      const resultId = `${result.productID}-${result.tocItemId}`;
-      
-      if (this.markedResults.has(resultId)) {
-        resultDiv.classList.add('marked');
-      }
-
-      resultDiv.innerHTML = `
-        <div class="result-content-wrapper">
-          <div class="result-title">${result.title}</div>
-          <div class="result-content">${result.content}</div>
-          <div class="result-path">${result.path}</div>
-        </div>
-        <div class="result-actions">
-          <button class="mark-button">${this.markedResults.has(resultId) ? '取消标记' : '标记为已解决'}</button>
-        </div>
-      `;
-
-      // 添加点击事件处理
-      resultDiv.addEventListener('click', async (e) => {
-        if (e.target.classList.contains('mark-button')) {
-          e.stopPropagation();
-          this.toggleMark(resultId, resultDiv);
-        } else if (result.url) {
-          await this.navigateCurrentTab(result.url);
-        }
-      });
-
+      const resultDiv = this.createResultItem(result);
       panel.appendChild(resultDiv);
     });
+  }
+
+  // 虚拟滚动渲染方式（适用于结果较多的情况）
+  renderVirtualListView(results, panel) {
+    // 清空面板
+    panel.innerHTML = '';
+    
+    // 虚拟滚动容器设置
+    panel.style.overflow = 'auto';
+    panel.style.position = 'relative';
+    panel.classList.add('virtual-scroll-container');
+    
+    // 估算每个结果项的高度（用于虚拟滚动计算）
+    const ITEM_HEIGHT = 150;
+    
+    // 创建虚拟滚动的内容容器
+    const contentContainer = document.createElement('div');
+    contentContainer.className = 'virtual-content-container';
+    contentContainer.style.height = `${results.length * ITEM_HEIGHT}px`;
+    contentContainer.style.position = 'relative';
+    panel.appendChild(contentContainer);
+    
+    // 创建可见区域容器
+    const visibleContainer = document.createElement('div');
+    visibleContainer.className = 'virtual-visible-container';
+    visibleContainer.style.position = 'absolute';
+    visibleContainer.style.top = '0';
+    visibleContainer.style.left = '0';
+    visibleContainer.style.width = '100%';
+    contentContainer.appendChild(visibleContainer);
+    
+    // 存储当前可见的结果项
+    const visibleItems = new Map();
+    
+    // 渲染可见区域内的结果项
+    const renderVisibleItems = () => {
+      const scrollTop = panel.scrollTop;
+      const containerHeight = panel.clientHeight;
+      
+      // 计算可见区域的起始和结束索引
+      const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - 5);
+      const endIndex = Math.min(results.length - 1, Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + 5);
+      
+      // 移除不在可见区域内的元素
+      visibleItems.forEach((item, index) => {
+        if (index < startIndex || index > endIndex) {
+          item.remove();
+          visibleItems.delete(index);
+        }
+      });
+      
+      // 渲染可见区域内的元素
+      for (let i = startIndex; i <= endIndex; i++) {
+        if (!visibleItems.has(i)) {
+          const result = results[i];
+          const resultDiv = this.createResultItem(result);
+          resultDiv.style.position = 'absolute';
+          resultDiv.style.top = `${i * ITEM_HEIGHT}px`;
+          resultDiv.style.left = '0';
+          resultDiv.style.width = '100%';
+          visibleContainer.appendChild(resultDiv);
+          visibleItems.set(i, resultDiv);
+        }
+      }
+      
+      // 更新可见容器的位置
+      visibleContainer.style.transform = `translateY(${startIndex * ITEM_HEIGHT}px)`;
+    };
+    
+    // 初始化渲染
+    renderVisibleItems();
+    
+    // 添加滚动事件监听
+    panel.addEventListener('scroll', renderVisibleItems);
+    
+    // 存储引用，以便后续清理
+    panel._virtualScrollState = {
+      results,
+      renderVisibleItems,
+      visibleItems
+    };
+  }
+
+  // 创建单个结果项元素
+  createResultItem(result) {
+    const resultDiv = document.createElement('div');
+    resultDiv.className = 'result-item';
+    const resultId = `${result.productID}-${result.tocItemId}`;
+    
+    if (this.markedResults.has(resultId)) {
+      resultDiv.classList.add('marked');
+    }
+
+    resultDiv.innerHTML = `
+      <div class="result-content-wrapper">
+        <div class="result-title">${result.title}</div>
+        <div class="result-content">${result.content}</div>
+        <div class="result-path">${result.path}</div>
+      </div>
+      <div class="result-actions">
+        <button class="mark-button">${this.markedResults.has(resultId) ? '取消标记' : '标记为已解决'}</button>
+      </div>
+    `;
+
+    // 添加点击事件处理
+    resultDiv.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('mark-button')) {
+        e.stopPropagation();
+        this.toggleMark(resultId, resultDiv);
+      } else if (result.url) {
+        await this.navigateCurrentTab(result.url);
+      }
+    });
+
+    return resultDiv;
   }
 
   updateTypeTab(tabId, label, results) {
