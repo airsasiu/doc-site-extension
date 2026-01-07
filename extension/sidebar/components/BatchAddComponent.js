@@ -14,9 +14,17 @@ class BatchAddComponent extends BaseComponent {
     modal.innerHTML = `
       <div class="modal-content">
         <div class="modal-header">
-          <h3>批量页面操作</h3>
+        <h3>批量页面操作</h3>
+        <div style="display: flex; gap: 8px;">
+          <button class="refresh-btn" title="重新获取目录">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 12h20M12 2A10 10 0 1 0 12 22 10 10 0 1 0 12 2z"></path>
+            </svg>
+            刷新目录
+          </button>
           <button class="close-btn">&times;</button>
         </div>
+      </div>
         <div class="modal-tabs">
           <button class="tab-btn active" data-tab="add">添加页面</button>
           <button class="tab-btn" data-tab="delete">删除页面</button>
@@ -128,6 +136,24 @@ class BatchAddComponent extends BaseComponent {
       .close-btn:hover {
         color: #666;
         background-color: #f5f5f5;
+      }
+      
+      .refresh-btn {
+        background-color: #1890ff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 12px;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: background-color 0.3s ease;
+      }
+      
+      .refresh-btn:hover {
+        background-color: #40a9ff;
       }
       
       .modal-body {
@@ -362,6 +388,22 @@ class BatchAddComponent extends BaseComponent {
     const deleteSearchInput = modal.querySelector('#delete-page-search');
     if (deleteSearchInput) {
       deleteSearchInput.addEventListener('input', (e) => this.handleDeletePageSearch(e));
+    }
+    
+    // 绑定刷新目录按钮事件
+    const refreshBtn = modal.querySelector('.refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        // 清除所有缓存
+        DocsAPI.clearCache();
+        // 重新加载父页面和所有页面
+        await Promise.all([
+          this.loadParentPages(),
+          this.loadAllPages()
+        ]);
+        // 显示刷新成功消息
+        this.showModalResult('目录已刷新', 'success');
+      });
     }
   }
 

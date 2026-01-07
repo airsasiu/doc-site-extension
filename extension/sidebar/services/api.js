@@ -27,20 +27,12 @@ class DocsAPI {
   }
 
   static async getDocVersions(productID) {
-    const cacheKey = `docVersions_${productID}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) {
-      console.log('使用缓存的文档版本数据');
-      return cached;
-    }
-
     try {
       const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productID}`);
       if (!response.ok) {
         throw new Error('获取文档版本失败');
       }
       const data = await response.json();
-      this.setToCache(cacheKey, data);
       return data;
     } catch (error) {
       console.error('获取文档版本错误:', error);
