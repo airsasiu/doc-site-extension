@@ -82,13 +82,16 @@ class BatchAddComponent extends BaseComponent {
       
       .modal-content {
         background-color: #fefefe;
-        margin: 15% auto;
+        margin: 5% auto;
         padding: 0;
         border: 1px solid #888;
         width: 80%;
         max-width: 600px;
+        max-height: 90vh;
         border-radius: 8px;
         box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+        display: flex;
+        flex-direction: column;
       }
       
       .modal-header {
@@ -109,18 +112,29 @@ class BatchAddComponent extends BaseComponent {
       .close-btn {
         background: none;
         border: none;
-        font-size: 28px;
+        font-size: 24px;
         font-weight: bold;
         cursor: pointer;
-        color: #666;
+        color: #999;
+        transition: color 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
       }
       
       .close-btn:hover {
-        color: #000;
+        color: #666;
+        background-color: #f5f5f5;
       }
       
       .modal-body {
         padding: 20px;
+        flex-grow: 1;
+        overflow-y: auto;
+        max-height: calc(100% - 140px);
       }
       
       .form-group {
@@ -176,12 +190,12 @@ class BatchAddComponent extends BaseComponent {
       
       .tab-btn:hover {
         background-color: #f5f5f5;
-        color: #333;
+        color: #1890ff;
       }
       
       .tab-btn.active {
-        color: #4CAF50;
-        border-bottom-color: #4CAF50;
+        color: #1890ff;
+        border-bottom-color: #1890ff;
       }
       
       .tab-content {
@@ -232,11 +246,11 @@ class BatchAddComponent extends BaseComponent {
       
       /* 彻底删除选项特殊样式 */
       #delete-permanently {
-        accent-color: #f44336;
+        accent-color: #ff4d4f;
       }
       
       #delete-permanently + label {
-        color: #f44336;
+        color: #ff4d4f;
         font-weight: bold;
       }
       
@@ -273,16 +287,25 @@ class BatchAddComponent extends BaseComponent {
         border-radius: 4px;
         cursor: pointer;
         font-size: 14px;
+        transition: background-color 0.3s ease;
       }
       
       .cancel-btn {
         background-color: #f0f0f0;
-        color: #333;
+        color: #666;
+      }
+      
+      .cancel-btn:hover {
+        background-color: #d9d9d9;
       }
       
       .confirm-btn {
-        background-color: #4CAF50;
+        background-color: #52c41a;
         color: white;
+      }
+      
+      .confirm-btn:hover {
+        background-color: #73d13d;
       }
       
       .batch-add-result {
