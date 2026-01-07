@@ -517,7 +517,7 @@ class BatchAddComponent extends BaseComponent {
   collectParentPages(items, level) {
     items.forEach(item => {
       this.originalParentPages.push({
-        id: item.id,
+        id: item.tocItemId,
         text: ' '.repeat(level * 2) + item.text,
         rawText: item.text
       });
