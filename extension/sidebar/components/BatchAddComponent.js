@@ -14,17 +14,17 @@ class BatchAddComponent extends BaseComponent {
     modal.innerHTML = `
       <div class="modal-content">
         <div class="modal-header">
-        <h3>批量页面操作</h3>
-        <div style="display: flex; gap: 8px;">
-          <button class="refresh-btn" title="重新获取目录">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 12h20M12 2A10 10 0 1 0 12 22 10 10 0 1 0 12 2z"></path>
-            </svg>
-            刷新目录
-          </button>
-          <button class="close-btn">&times;</button>
+          <h3>批量页面操作</h3>
+          <div style="display: flex; gap: 8px;">
+            <button class="refresh-btn" title="重新获取目录">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 12h20M12 2A10 10 0 1 0 12 22 10 10 0 1 0 12 2z"></path>
+              </svg>
+              刷新目录
+            </button>
+            <button class="close-btn">&times;</button>
+          </div>
         </div>
-      </div>
         <div class="modal-tabs">
           <button class="tab-btn active" data-tab="add">添加页面</button>
           <button class="tab-btn" data-tab="delete">删除页面</button>
@@ -64,6 +64,14 @@ class BatchAddComponent extends BaseComponent {
                 </div>
               </div>
               <p class="warning-text">警告：彻底删除操作不可恢复，请务必谨慎操作！</p>
+            </div>
+          </div>
+          
+          <!-- 进度条 -->
+          <div class="modal-progress" style="display: none;">
+            <div class="progress-text">正在处理...</div>
+            <div class="progress-bar-container">
+              <div class="progress-bar"></div>
             </div>
           </div>
         </div>
@@ -351,6 +359,36 @@ class BatchAddComponent extends BaseComponent {
         background-color: #f8d7da;
         color: #721c24;
         border: 1px solid #f5c6cb;
+      }
+      
+      .modal-progress {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #fafafa;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      
+      .modal-progress .progress-text {
+        margin-bottom: 10px;
+        font-weight: bold;
+        color: #666;
+        text-align: center;
+      }
+      
+      .modal-progress .progress-bar-container {
+        margin-top: 8px;
+        background: #f0f0f0;
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+      }
+      
+      .modal-progress .progress-bar {
+        height: 100%;
+        background: #1890ff;
+        transition: width 0.3s ease;
+        border-radius: 4px;
       }
     `;
     
@@ -683,6 +721,8 @@ class BatchAddComponent extends BaseComponent {
       
       // 显示进度条
       this.progressBar.start(pageNames.length);
+      // 显示模态框内的进度条
+      this.showModalProgress();
       
       // 构建请求数据并批量创建页面
       const results = [];
@@ -714,16 +754,21 @@ class BatchAddComponent extends BaseComponent {
         
         // 更新进度
         this.progressBar.updateProgress(i + 1, pageNames.length);
+        // 更新模态框内的进度条
+        this.updateModalProgress(i + 1, pageNames.length);
       }
       
       // 隐藏进度条
       this.progressBar.reset();
+      // 隐藏模态框内的进度条
+      this.hideModalProgress();
       
       // 显示结果
       this.showBatchResult(results);
     } catch (error) {
       console.error('批量添加页面失败:', error);
       this.progressBar.reset();
+      this.hideModalProgress();
       this.showModalResult(`批量添加页面失败: ${error.message}`, 'error');
     }
   }
@@ -759,6 +804,8 @@ class BatchAddComponent extends BaseComponent {
       
       // 显示进度条
       this.progressBar.start(selectedPageIds.length);
+      // 显示模态框内的进度条
+      this.showModalProgress();
       
       // 批量删除页面
       const results = [];
@@ -778,10 +825,14 @@ class BatchAddComponent extends BaseComponent {
         
         // 更新进度
         this.progressBar.updateProgress(i + 1, selectedPageIds.length);
+        // 更新模态框内的进度条
+        this.updateModalProgress(i + 1, selectedPageIds.length);
       }
       
       // 隐藏进度条
       this.progressBar.reset();
+      // 隐藏模态框内的进度条
+      this.hideModalProgress();
       
       // 显示结果
       this.showBatchResult(results);
@@ -791,6 +842,7 @@ class BatchAddComponent extends BaseComponent {
     } catch (error) {
       console.error('批量删除页面失败:', error);
       this.progressBar.reset();
+      this.hideModalProgress();
       this.showModalResult(`批量删除页面失败: ${error.message}`, 'error');
     }
   }
@@ -818,12 +870,61 @@ class BatchAddComponent extends BaseComponent {
     this.modal.querySelector('.modal-body').appendChild(resultDiv);
   }
 
+  // 显示模态框内的进度条
+  showModalProgress() {
+    const progressDiv = this.modal.querySelector('.modal-progress');
+    if (progressDiv) {
+      progressDiv.style.display = 'block';
+    }
+  }
+  
+  // 更新模态框内的进度条
+  updateModalProgress(current, total) {
+    const progressBar = this.modal.querySelector('.modal-progress .progress-bar');
+    const progressText = this.modal.querySelector('.modal-progress .progress-text');
+    if (progressBar && progressText) {
+      const percentage = Math.round((current / total) * 100);
+      progressBar.style.width = `${percentage}%`;
+      progressText.textContent = `正在处理: ${current}/${total} (${percentage}%)`;
+    }
+  }
+  
+  // 隐藏模态框内的进度条
+  hideModalProgress() {
+    const progressDiv = this.modal.querySelector('.modal-progress');
+    if (progressDiv) {
+      progressDiv.style.display = 'none';
+      // 重置进度条宽度
+      const progressBar = this.modal.querySelector('.modal-progress .progress-bar');
+      if (progressBar) {
+        progressBar.style.width = '0%';
+      }
+    }
+  }
+  
+  showModalResult(message, type) {
+    // 移除现有结果
+    const existingResult = this.modal.querySelector('.batch-add-result');
+    if (existingResult) {
+      existingResult.remove();
+    }
+    
+    // 创建新结果
+    const resultDiv = document.createElement('div');
+    resultDiv.className = `batch-add-result ${type}`;
+    // 使用innerHTML而不是textContent，这样HTML内容就能正确渲染
+    resultDiv.innerHTML = message;
+    
+    // 添加到模态框底部
+    this.modal.querySelector('.modal-body').appendChild(resultDiv);
+  }
+  
   showBatchResult(results) {
     const successCount = results.filter(r => r.success).length;
     const totalCount = results.length;
     
     let resultHtml = `
-      <h4>批量添加结果</h4>
+      <h4>批量${this.currentTab === 'add' ? '添加' : '删除'}结果</h4>
       <p>成功: ${successCount}/${totalCount}</p>
     `;
     
@@ -833,7 +934,7 @@ class BatchAddComponent extends BaseComponent {
     // 成功的结果
     const successResults = results.filter(r => r.success);
     if (successResults.length > 0) {
-      resultHtml += '<h5>成功添加:</h5><ul>';
+      resultHtml += `<h5>成功${this.currentTab === 'add' ? '添加' : '删除'}:</h5><ul>`;
       successResults.forEach(r => {
         resultHtml += `<li style="color: #155724;">${r.name}</li>`;
       });
@@ -843,7 +944,7 @@ class BatchAddComponent extends BaseComponent {
     // 失败的结果
     const errorResults = results.filter(r => !r.success);
     if (errorResults.length > 0) {
-      resultHtml += '<h5>添加失败:</h5><ul>';
+      resultHtml += `<h5>${this.currentTab === 'add' ? '添加' : '删除'}失败:</h5><ul>`;
       errorResults.forEach(r => {
         resultHtml += `<li style="color: #721c24;">${r.name}: ${r.error}</li>`;
       });
