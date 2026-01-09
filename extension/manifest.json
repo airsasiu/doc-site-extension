@@ -11,7 +11,9 @@
     "contextMenus"
   ],
   "host_permissions": [
-    "https://docs.grapecity.com.cn/*"
+    "https://docs.grapecity.com.cn/*",
+    "https://developer.mescius.com/*",
+    "https://docapp.mescius.io/*"
   ],
   "side_panel": {
     "default_path": "sidebar/sidebar.html"
@@ -43,12 +45,12 @@
       },
       "description": "上传 Markdown 中的图片"
     },
-    "extract_link": {
+    "copy_english_doc": {
       "suggested_key": {
-        "default": "Alt+Shift+X",
-        "mac": "Alt+Shift+X"
+        "default": "Alt+Shift+D",
+        "mac": "Alt+Shift+D"
       },
-      "description": "提取选中文本的链接"
+      "description": "从英文文档复制 Markdown 到剪贴板"
     },
     "open_help": {
       "description": "打开帮助文档"

@@ -39,5 +39,12 @@ export const CHECK_ITEMS = {
     name: '转义双星号',
     check: (content) => content.includes('\\*\\*'),
     message: '包含转义双星号 "\\*\\*"'
+  },
+
+  noteType: {
+    id: 'noteType',
+    name: '类型=注意',
+    check: (content) => content.includes('类型=注意'),
+    message: '包含 "类型=注意" 字样'
   }
 };

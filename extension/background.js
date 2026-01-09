@@ -190,6 +190,25 @@ chrome.commands.onCommand.addListener(async (command) => {
     } catch (error) {
       console.error('Error during link extraction:', error);
     }
+  } else if (command === "copy_english_doc") {
+    console.log('Copy English doc command triggered');
+    
+    try {
+      // 注入工具脚本和文档复制脚本
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ['scripts/utils.js']
+      });
+      
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ['scripts/copy-english-doc.js']
+      });
+      
+      console.log('Copy English doc script injected and executed');
+    } catch (error) {
+      console.error('Error during copy English doc operation:', error);
+    }
   } else if (command === "open_help") {
     console.log('Open help command triggered');
     
@@ -241,6 +260,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       })
       .catch(error => {
         console.error('获取图片失败:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // 保持消息通道打开
+  }
+  
+  // 处理获取 Markdown 文档的请求
+  if (request.type === 'fetchMarkdown') {
+    fetch(request.url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+      })
+      .then(markdown => {
+        sendResponse({ success: true, data: markdown });
+      })
+      .catch(error => {
+        console.error('获取 Markdown 失败:', error);
         sendResponse({ success: false, error: error.message });
       });
     return true; // 保持消息通道打开
