@@ -31,16 +31,60 @@ async function processMarkdownLinks(markdown) {
   let processedImages = 0;
   let processedLinks = 0;
   
+  // 匹配所有链接，预先计算总数
+  const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+  const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+  let totalItems = 0;
+  let imageMatches = [];
+  let linkMatches = [];
+  let match;
+  
+  // 计算图片总数
+  while ((match = imageRegex.exec(markdown)) !== null) {
+    const imageUrl = match[2];
+    if (!isImageAlreadyProcessed(imageUrl)) {
+      imageMatches.push(match);
+      totalItems++;
+    }
+  }
+  
+  // 计算链接总数
+  while ((match = linkRegex.exec(markdown)) !== null) {
+    // 跳过图片链接（已经处理过）
+    if (match[0].startsWith('![')) {
+      continue;
+    }
+    const url = match[2];
+    if (!isLinkAlreadyProcessed(url)) {
+      linkMatches.push(match);
+      totalItems++;
+    }
+  }
+  
+  if (totalItems === 0) {
+    window.docSiteUtils.showNotification('未找到需要处理的图片或链接', 'info');
+    return;
+  }
+  
+  // 显示开始处理的提示和焦点提醒
+  window.docSiteUtils.showNotification(`开始处理 ${totalItems} 个项目...\n\n⚠️ 处理过程中请保持焦点在当前浏览器页面，否则剪贴板写入可能会失败`, 'info', 10000);
+  
+  let processedItems = 0;
+  
   // 1. 先处理图片
   processedMarkdown = await processImages(processedMarkdown, (count, total) => {
     imageCount = total;
     processedImages = count;
+    processedItems = processedImages + processedLinks;
+    window.docSiteUtils.updateProgress(processedItems, totalItems, `正在处理项目 ${processedItems}/${totalItems}`);
   });
   
   // 2. 再处理普通链接
   processedMarkdown = await processLinks(processedMarkdown, (count, total) => {
     linkCount = total;
     processedLinks = count;
+    processedItems = processedImages + processedLinks;
+    window.docSiteUtils.updateProgress(processedItems, totalItems, `正在处理项目 ${processedItems}/${totalItems}`);
   });
   
   // 3. 复制处理后的文本到剪贴板
@@ -60,13 +104,23 @@ async function processImages(markdown, progressCallback) {
   const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
   let match;
   let imageMatches = [];
+  let processableImages = [];
   
   // 收集所有图片匹配项
   while ((match = imageRegex.exec(markdown)) !== null) {
     imageMatches.push({fullMatch: match[0], altText: match[1], imageUrl: match[2]});
   }
   
-  if (imageMatches.length === 0) {
+  // 过滤出需要处理的图片
+  for (const image of imageMatches) {
+    if (!isImageAlreadyProcessed(image.imageUrl)) {
+      processableImages.push(image);
+    }
+  }
+  
+  const totalProcessable = processableImages.length;
+  
+  if (totalProcessable === 0) {
     if (progressCallback) progressCallback(0, 0);
     return result;
   }
@@ -83,15 +137,8 @@ async function processImages(markdown, progressCallback) {
   }
   
   // 处理每个图片
-  for (let i = 0; i < imageMatches.length; i++) {
-    const {fullMatch, altText, imageUrl} = imageMatches[i];
-    
-    // 检查是否需要跳过
-    if (isImageAlreadyProcessed(imageUrl)) {
-      console.log('跳过已处理的图片:', imageUrl);
-      if (progressCallback) progressCallback(i, imageMatches.length);
-      continue;
-    }
+  for (let i = 0; i < processableImages.length; i++) {
+    const {fullMatch, altText, imageUrl} = processableImages[i];
     
     // 上传图片
     try {
@@ -107,7 +154,7 @@ async function processImages(markdown, progressCallback) {
     }
     
     // 更新进度
-    if (progressCallback) progressCallback(i + 1, imageMatches.length);
+    if (progressCallback) progressCallback(i + 1, totalProcessable);
     
     // 添加延迟，避免服务器过载
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -124,6 +171,7 @@ async function processLinks(markdown, progressCallback) {
   const linkRegex = /\[(.*?)\]\((.*?)\)/g;
   let match;
   let linkMatches = [];
+  let processableLinks = [];
   
   // 收集所有链接匹配项
   while ((match = linkRegex.exec(markdown)) !== null) {
@@ -134,7 +182,16 @@ async function processLinks(markdown, progressCallback) {
     linkMatches.push({fullMatch: match[0], text: match[1], url: match[2]});
   }
   
-  if (linkMatches.length === 0) {
+  // 过滤出需要处理的链接
+  for (const link of linkMatches) {
+    if (!isLinkAlreadyProcessed(link.url)) {
+      processableLinks.push(link);
+    }
+  }
+  
+  const totalProcessable = processableLinks.length;
+  
+  if (totalProcessable === 0) {
     if (progressCallback) progressCallback(0, 0);
     return result;
   }
@@ -143,20 +200,13 @@ async function processLinks(markdown, progressCallback) {
   const productId = getProductIdFromUrl();
   if (!productId) {
     console.error('无法获取产品 ID，跳过链接处理');
-    if (progressCallback) progressCallback(0, linkMatches.length);
+    if (progressCallback) progressCallback(0, totalProcessable);
     return result;
   }
   
   // 处理每个链接
-  for (let i = 0; i < linkMatches.length; i++) {
-    const {fullMatch, text, url} = linkMatches[i];
-    
-    // 检查是否需要跳过
-    if (isLinkAlreadyProcessed(url)) {
-      console.log('跳过已处理的链接:', url);
-      if (progressCallback) progressCallback(i, linkMatches.length);
-      continue;
-    }
+  for (let i = 0; i < processableLinks.length; i++) {
+    const {fullMatch, text, url} = processableLinks[i];
     
     // 搜索链接
     try {
@@ -175,7 +225,7 @@ async function processLinks(markdown, progressCallback) {
     }
     
     // 更新进度
-    if (progressCallback) progressCallback(i + 1, linkMatches.length);
+    if (progressCallback) progressCallback(i + 1, totalProcessable);
     
     // 添加延迟，避免服务器过载
     await new Promise(resolve => setTimeout(resolve, 500));
