@@ -237,7 +237,7 @@ class DocumentSearchComponent extends BaseComponent {
   createResultItem(result) {
     const resultDiv = document.createElement('div');
     resultDiv.className = 'result-item';
-    const resultId = `${result.productID}-${result.tocItemId}`;
+    const resultId = `${result.itemId}-${result.configId}`;
     
     if (this.markedResults.has(resultId)) {
       resultDiv.classList.add('marked');
@@ -287,6 +287,12 @@ class DocumentSearchComponent extends BaseComponent {
       panel.className = 'tab-panel';
       panel.id = tabId;
       this.tabContent.appendChild(panel);
+
+      // 只有新创建的标签页才默认激活，且只有第一个标签页才自动激活
+      const totalTabs = this.tabHeader.querySelectorAll('.tab-button').length;
+      if (totalTabs === 1) {
+        this.switchTab(tabId);
+      }
     } else {
       existingTab.textContent = `${label} (${results.length})`;
     }
@@ -305,8 +311,6 @@ class DocumentSearchComponent extends BaseComponent {
     } else {
       this.renderListView(results, panel);
     }
-
-    this.switchTab(tabId);
   }
 
   switchTab(tabId) {
@@ -325,15 +329,27 @@ class DocumentSearchComponent extends BaseComponent {
 
   // 切换标记状态
   toggleMark(resultId, element) {
-    // 直接移除该条结果
-    element.remove();
     // 更新当前标签页的结果
     const currentTab = document.querySelector('.tab-button.active');
     if (currentTab) {
       const tabId = currentTab.getAttribute('data-tab-id');
-      const results = Array.from(this.searchResults.get(tabId)?.values() || [])
-        .filter(r => `${r.productID}-${r.tocItemId}` !== resultId);
-      this.updateTypeTab(tabId, this.getTabLabel(tabId), results);
+      const typeResults = this.searchResults.get(tabId);
+      
+      if (typeResults) {
+        // 从结果Map中移除对应的结果
+        typeResults.delete(resultId);
+        
+        // 更新标记集合
+        if (this.markedResults.has(resultId)) {
+          this.markedResults.delete(resultId);
+        } else {
+          this.markedResults.add(resultId);
+        }
+        
+        // 更新标签页显示
+        const label = this.getTabLabel(tabId);
+        this.updateTypeTab(tabId, label, Array.from(typeResults.values()));
+      }
     }
   }
 
@@ -355,12 +371,15 @@ class DocumentSearchComponent extends BaseComponent {
             url: this.getDocUrl(productID, item.id, item.tocItemId),
             path: item.documentPath,
             tocItemId: item.tocItemId,
-            productID: productID
+            productID: productID,
+            itemId: item.id,
+            configId: config.id
           };
           
           const typeResults = this.searchResults.get(config.id);
           const resultId = `${item.id}-${config.id}`;
-          if (!typeResults.has(resultId)) {
+          // 检查是否已标记为已解决，如果是则跳过
+          if (!this.markedResults.has(resultId) && !typeResults.has(resultId)) {
             typeResults.set(resultId, result);
             this.updateTypeTab(config.id, config.label, Array.from(typeResults.values()));
           }

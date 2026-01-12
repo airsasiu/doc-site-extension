@@ -53,11 +53,10 @@ class ProgressBar {
     const now = Date.now();
     
     // 计算处理速度
-    if (current > 0 && this.lastUpdateTime) {
-      const timeDiff = (now - this.lastUpdateTime) / 1000; // 秒
-      const processedDiff = current - this.lastProcessedCount;
-      if (timeDiff > 0) {
-        this.speed = processedDiff / timeDiff;
+    if (current > 0) {
+      const elapsedTime = (now - this.startTime) / 1000; // 秒
+      if (elapsedTime > 0) {
+        this.speed = current / elapsedTime;
       }
     }
     
