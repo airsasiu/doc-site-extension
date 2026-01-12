@@ -4,6 +4,7 @@ class DocumentSearchComponent extends BaseComponent {
   constructor(progressBar) {
     super(progressBar);
     this.searchResults = new Map();
+    this.totalResults = new Map(); // 存储每个标签的原始结果总数
     this.tabHeader = document.querySelector('.tab-header');
     this.tabContent = document.querySelector('.tab-content');
     this.currentView = 'list'; // 默认列表视图
@@ -32,6 +33,7 @@ class DocumentSearchComponent extends BaseComponent {
 
   clearResults() {
     this.searchResults.clear();
+    this.totalResults.clear(); // 清除原始结果总数
     this.markedResults.clear();
     if (this.tabHeader) {
       this.tabHeader.innerHTML = '';
@@ -267,6 +269,18 @@ class DocumentSearchComponent extends BaseComponent {
     return resultDiv;
   }
 
+  // 根据完成百分比获取颜色
+  getProgressColor(completed, total) {
+    const percentage = total > 0 ? completed / total : 0;
+    
+    // 从红色 (255, 0, 0) 到绿色 (0, 255, 0) 的渐变
+    const r = Math.floor(255 * (1 - percentage));
+    const g = Math.floor(255 * percentage);
+    const b = 0;
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
   updateTypeTab(tabId, label, results) {
     if (!this.tabHeader || !this.tabContent) {
       console.error('Tab containers not found');
@@ -274,12 +288,24 @@ class DocumentSearchComponent extends BaseComponent {
     }
 
     const existingTab = document.querySelector(`[data-tab-id="${tabId}"]`);
+    
+    // 计算已解决数量和总数
+    const total = this.totalResults.get(tabId) || 0;
+    const remaining = results.length;
+    const completed = total - remaining;
+    
+    // 创建包含进度的标题
+    const progressTitle = `${label}(${completed} / ${total})`;
+    
+    // 获取进度颜色
+    const progressColor = this.getProgressColor(completed, total);
+    
     if (!existingTab) {
       const button = document.createElement('button');
       button.className = 'tab-button';
       button.dataset.tabId = tabId;
       button.dataset.label = label;
-      button.textContent = `${label} (${results.length})`;
+      button.innerHTML = `${label}<span class="progress-count" style="color: ${progressColor}">(${completed} / ${total})</span>`;
       button.addEventListener('click', () => this.switchTab(tabId));
       this.tabHeader.appendChild(button);
 
@@ -294,7 +320,7 @@ class DocumentSearchComponent extends BaseComponent {
         this.switchTab(tabId);
       }
     } else {
-      existingTab.textContent = `${label} (${results.length})`;
+      existingTab.innerHTML = `${label}<span class="progress-count" style="color: ${progressColor}">(${completed} / ${total})</span>`;
     }
 
     const panel = document.getElementById(tabId);
@@ -356,14 +382,23 @@ class DocumentSearchComponent extends BaseComponent {
   // 核心搜索方法
   async performSearch(searchConfigs) {
     this.searchResults.clear();
-    // 初始化每个搜索配置的结果集
+    this.totalResults.clear(); // 清空原始结果总数
+    
+    // 初始化结果集和计数器
     searchConfigs.forEach(config => {
       this.searchResults.set(config.id, new Map());
+      this.totalResults.set(config.id, 0); // 初始化原始结果总数为 0
     });
 
+    // 直接处理文档，实时更新结果和 UI
     await this.processDocuments(async ({ content, item, productID }) => {
       searchConfigs.forEach(config => {
         if (config.check(content.markdownContent)) {
+          // 增加原始结果总数计数（不管是否已标记）
+          const currentTotal = this.totalResults.get(config.id) || 0;
+          this.totalResults.set(config.id, currentTotal + 1);
+          
+          // 创建结果对象
           const result = {
             title: content.title || item.text || item.displayName,
             message: config.getMessage ? config.getMessage(content.markdownContent) : '',
@@ -376,11 +411,14 @@ class DocumentSearchComponent extends BaseComponent {
             configId: config.id
           };
           
-          const typeResults = this.searchResults.get(config.id);
-          const resultId = `${item.id}-${config.id}`;
-          // 检查是否已标记为已解决，如果是则跳过
-          if (!this.markedResults.has(resultId) && !typeResults.has(resultId)) {
+          // 检查是否已标记为已解决
+          const resultId = `${result.itemId}-${result.configId}`;
+          if (!this.markedResults.has(resultId)) {
+            // 将结果添加到结果集中
+            const typeResults = this.searchResults.get(config.id);
             typeResults.set(resultId, result);
+            
+            // 实时更新标签页显示
             this.updateTypeTab(config.id, config.label, Array.from(typeResults.values()));
           }
         }
