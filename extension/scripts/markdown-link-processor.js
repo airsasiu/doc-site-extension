@@ -31,24 +31,25 @@ async function processMarkdownLinks(markdown) {
   let processedImages = 0;
   let processedLinks = 0;
   
-  // 匹配所有链接，预先计算总数
+  // 匹配所有链接，预先计算总数和收集匹配项
   const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
-  const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+  // 使用负向前瞻断言，确保链接前面不是感叹号，避免匹配到图片链接
+  const linkRegex = /(?<!\!)\[(.*?)\]\((.*?)\)/g;
   let totalItems = 0;
   let imageMatches = [];
   let linkMatches = [];
   let match;
   
-  // 计算图片总数
+  // 计算图片总数并收集需要处理的图片匹配项
   while ((match = imageRegex.exec(markdown)) !== null) {
     const imageUrl = match[2];
     if (!isImageAlreadyProcessed(imageUrl)) {
-      imageMatches.push(match);
+      imageMatches.push({fullMatch: match[0], altText: match[1], imageUrl: imageUrl});
       totalItems++;
     }
   }
   
-  // 计算链接总数
+  // 计算链接总数并收集需要处理的链接匹配项
   while ((match = linkRegex.exec(markdown)) !== null) {
     // 跳过图片链接（已经处理过）
     if (match[0].startsWith('![')) {
@@ -56,7 +57,7 @@ async function processMarkdownLinks(markdown) {
     }
     const url = match[2];
     if (!isLinkAlreadyProcessed(url)) {
-      linkMatches.push(match);
+      linkMatches.push({fullMatch: match[0], text: match[1], url: url});
       totalItems++;
     }
   }
@@ -69,21 +70,19 @@ async function processMarkdownLinks(markdown) {
   // 显示开始处理的提示和焦点提醒
   window.docSiteUtils.showNotification(`开始处理 ${totalItems} 个项目...\n\n⚠️ 处理过程中请保持焦点在当前浏览器页面，否则剪贴板写入可能会失败`, 'info', 10000);
   
-  let processedItems = 0;
-  
   // 1. 先处理图片
-  processedMarkdown = await processImages(processedMarkdown, (count, total) => {
-    imageCount = total;
+  imageCount = imageMatches.length;
+  processedMarkdown = await processImages(processedMarkdown, imageMatches, (count) => {
     processedImages = count;
-    processedItems = processedImages + processedLinks;
+    const processedItems = processedImages + processedLinks;
     window.docSiteUtils.updateProgress(processedItems, totalItems, `正在处理项目 ${processedItems}/${totalItems}`);
   });
   
   // 2. 再处理普通链接
-  processedMarkdown = await processLinks(processedMarkdown, (count, total) => {
-    linkCount = total;
+  linkCount = linkMatches.length;
+  processedMarkdown = await processLinks(processedMarkdown, linkMatches, (count) => {
     processedLinks = count;
-    processedItems = processedImages + processedLinks;
+    const processedItems = processedImages + processedLinks;
     window.docSiteUtils.updateProgress(processedItems, totalItems, `正在处理项目 ${processedItems}/${totalItems}`);
   });
   
@@ -97,31 +96,11 @@ async function processMarkdownLinks(markdown) {
 }
 
 // 处理 Markdown 中的图片
-async function processImages(markdown, progressCallback) {
+async function processImages(markdown, imageMatches, progressCallback) {
   let result = markdown;
   
-  // 匹配 Markdown 图片语法: ![alt](url)
-  const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
-  let match;
-  let imageMatches = [];
-  let processableImages = [];
-  
-  // 收集所有图片匹配项
-  while ((match = imageRegex.exec(markdown)) !== null) {
-    imageMatches.push({fullMatch: match[0], altText: match[1], imageUrl: match[2]});
-  }
-  
-  // 过滤出需要处理的图片
-  for (const image of imageMatches) {
-    if (!isImageAlreadyProcessed(image.imageUrl)) {
-      processableImages.push(image);
-    }
-  }
-  
-  const totalProcessable = processableImages.length;
-  
-  if (totalProcessable === 0) {
-    if (progressCallback) progressCallback(0, 0);
+  if (imageMatches.length === 0) {
+    if (progressCallback) progressCallback(0);
     return result;
   }
   
@@ -137,8 +116,8 @@ async function processImages(markdown, progressCallback) {
   }
   
   // 处理每个图片
-  for (let i = 0; i < processableImages.length; i++) {
-    const {fullMatch, altText, imageUrl} = processableImages[i];
+  for (let i = 0; i < imageMatches.length; i++) {
+    const {fullMatch, altText, imageUrl} = imageMatches[i];
     
     // 上传图片
     try {
@@ -154,7 +133,7 @@ async function processImages(markdown, progressCallback) {
     }
     
     // 更新进度
-    if (progressCallback) progressCallback(i + 1, totalProcessable);
+    if (progressCallback) progressCallback(i + 1);
     
     // 添加延迟，避免服务器过载
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -164,35 +143,11 @@ async function processImages(markdown, progressCallback) {
 }
 
 // 处理 Markdown 中的普通链接
-async function processLinks(markdown, progressCallback) {
+async function processLinks(markdown, linkMatches, progressCallback) {
   let result = markdown;
   
-  // 匹配 Markdown 链接语法: [text](url)
-  const linkRegex = /\[(.*?)\]\((.*?)\)/g;
-  let match;
-  let linkMatches = [];
-  let processableLinks = [];
-  
-  // 收集所有链接匹配项
-  while ((match = linkRegex.exec(markdown)) !== null) {
-    // 跳过图片链接（已经处理过）
-    if (match[0].startsWith('![')) {
-      continue;
-    }
-    linkMatches.push({fullMatch: match[0], text: match[1], url: match[2]});
-  }
-  
-  // 过滤出需要处理的链接
-  for (const link of linkMatches) {
-    if (!isLinkAlreadyProcessed(link.url)) {
-      processableLinks.push(link);
-    }
-  }
-  
-  const totalProcessable = processableLinks.length;
-  
-  if (totalProcessable === 0) {
-    if (progressCallback) progressCallback(0, 0);
+  if (linkMatches.length === 0) {
+    if (progressCallback) progressCallback(0);
     return result;
   }
   
@@ -200,13 +155,13 @@ async function processLinks(markdown, progressCallback) {
   const productId = getProductIdFromUrl();
   if (!productId) {
     console.error('无法获取产品 ID，跳过链接处理');
-    if (progressCallback) progressCallback(0, totalProcessable);
+    if (progressCallback) progressCallback(0);
     return result;
   }
   
   // 处理每个链接
-  for (let i = 0; i < processableLinks.length; i++) {
-    const {fullMatch, text, url} = processableLinks[i];
+  for (let i = 0; i < linkMatches.length; i++) {
+    const {fullMatch, text, url} = linkMatches[i];
     
     // 搜索链接
     try {
@@ -225,7 +180,7 @@ async function processLinks(markdown, progressCallback) {
     }
     
     // 更新进度
-    if (progressCallback) progressCallback(i + 1, totalProcessable);
+    if (progressCallback) progressCallback(i + 1);
     
     // 添加延迟，避免服务器过载
     await new Promise(resolve => setTimeout(resolve, 500));
