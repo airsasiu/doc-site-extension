@@ -34,15 +34,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         files: ['scripts/utils.js']
       });
       
-      // 然后注入并执行图片上传脚本
+      // 然后注入并执行 Markdown 链接处理脚本
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['scripts/image-uploader.js']
+        files: ['scripts/markdown-link-processor.js']
       });
       
-      console.log('Image upload script injected and executed');
+      console.log('Markdown link processor script injected and executed');
     } catch (error) {
-      console.error('Error during image upload operation:', error);
+      console.error('Error during Markdown link processing:', error);
     }
   } else if (info.menuItemId === "remove_br_tags") {
     try {
@@ -124,32 +124,6 @@ chrome.commands.onCommand.addListener(async (command) => {
     } catch (error) {
       console.error('Error during format operation:', error);
     }
-  } else if (command === "check_span_tags") {
-    console.log('Check span tags command triggered');
-    
-    try {
-      // 首先确保脚本已注入
-      await chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
-        files: ['scripts/span-checker.js']
-      });
-      
-      // 然后执行检查函数
-      await chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
-        func: () => {
-          if (typeof window.checkForSpanTags === 'function') {
-            window.checkForSpanTags();
-          } else {
-            console.error('checkForSpanTags 函数未找到');
-          }
-        }
-      });
-      
-      console.log('Span check completed');
-    } catch (error) {
-      console.error('Error during span check operation:', error);
-    }
   } else if (command === "upload_images") {
     console.log('Upload images command triggered');
     
@@ -160,35 +134,15 @@ chrome.commands.onCommand.addListener(async (command) => {
         files: ['scripts/utils.js']
       });
       
-      // 然后注入并执行图片上传脚本
+      // 然后注入并执行 Markdown 链接处理脚本
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
-        files: ['scripts/image-uploader.js']
+        files: ['scripts/markdown-link-processor.js']
       });
       
       console.log('Image upload script injected and executed');
     } catch (error) {
       console.error('Error during image upload operation:', error);
-    }
-  } else if (command === "extract_link") {
-    console.log('Extract link command triggered');
-    
-    try {
-      // 首先注入工具脚本
-      await chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
-        files: ['scripts/utils.js']
-      });
-      
-      // 然后注入并执行链接提取脚本
-      await chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
-        files: ['scripts/extract-link.js']
-      });
-      
-      console.log('Link extraction script injected and executed');
-    } catch (error) {
-      console.error('Error during link extraction:', error);
     }
   } else if (command === "copy_english_doc") {
     console.log('Copy English doc command triggered');

@@ -213,6 +213,56 @@ class DocsAPI {
     
     return results;
   }
+
+  /**
+   * 搜索文档
+   * @param {string} productId - 产品 ID
+   * @param {string} keyword - 搜索关键词
+   * @returns {Promise<Array<Object>>} - 搜索结果数组
+   */
+  static async searchDocs(productId, keyword) {
+    const cacheKey = `searchDocs_${productId}_${keyword}`;
+    const cached = this.getFromCache(cacheKey);
+    if (cached) {
+      console.log('使用缓存的搜索结果');
+      return cached;
+    }
+
+    try {
+      const url = `https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productId}/tocItem/search?keyword=${encodeURIComponent(keyword)}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error('搜索请求失败');
+      }
+      
+      const data = await response.json();
+      
+      // 合并所有结果
+      const allResults = [
+        ...(data.helpDocResult || []),
+        ...(data.apiDocResult || []),
+        ...(data.demoDocResult || [])
+      ];
+      
+      // 排序：完全匹配的结果放在前面
+      const keywordLower = keyword.toLowerCase();
+      allResults.sort((a, b) => {
+        const aExactMatch = a.text.toLowerCase() === keywordLower || a.displayName.toLowerCase() === keywordLower;
+        const bExactMatch = b.text.toLowerCase() === keywordLower || b.displayName.toLowerCase() === keywordLower;
+        
+        if (aExactMatch && !bExactMatch) return -1;
+        if (!aExactMatch && bExactMatch) return 1;
+        return 0;
+      });
+      
+      this.setToCache(cacheKey, allResults);
+      return allResults;
+    } catch (error) {
+      console.error('搜索文档错误:', error);
+      throw error;
+    }
+  }
 }
 
 export default DocsAPI;

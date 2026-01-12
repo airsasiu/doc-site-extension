@@ -1,159 +1,239 @@
-// 上传 Markdown 中的图片
+// 处理 Markdown 中的图片和链接
 (function() {
-  console.log('Image uploader script loaded and executing');
+  console.log('Markdown link processor script loaded and executing');
   
   try {
     // 获取选中的文本
     const selection = window.getSelection();
     const selectedText = selection.toString();
     
-    console.log('Selected text length:', selectedText.length);
+    console.log('Selected text:', selectedText);
     
     if (!selectedText) {
       window.docSiteUtils.showNotification('未选择任何文本', 'error');
       return;
     }
     
-    // 查找所有图片链接
-    processMarkdownImages(selectedText, selection);
+    // 处理 Markdown 链接
+    processMarkdownLinks(selectedText);
     
   } catch (error) {
-    console.error("处理图片上传时出错:", error);
-    window.docSiteUtils.showNotification(`上传图片时出错: ${error.message}`, 'error');
+    console.error("处理 Markdown 链接时出错:", error);
+    window.docSiteUtils.showNotification(`处理链接时出错: ${error.message}`, 'error');
   }
 })();
 
-// 处理 Markdown 中的图片和换行符
-async function processMarkdownImages(markdown, selection) {
-  // 首先处理换行符和空行
-  let processedMarkdown = window.docSiteUtils.cleanupMarkdown(markdown);
+// 处理 Markdown 中的图片和链接
+async function processMarkdownLinks(markdown) {
+  let processedMarkdown = markdown;
+  let imageCount = 0;
+  let linkCount = 0;
+  let processedImages = 0;
+  let processedLinks = 0;
+  
+  // 1. 先处理图片
+  processedMarkdown = await processImages(processedMarkdown, (count, total) => {
+    imageCount = total;
+    processedImages = count;
+  });
+  
+  // 2. 再处理普通链接
+  processedMarkdown = await processLinks(processedMarkdown, (count, total) => {
+    linkCount = total;
+    processedLinks = count;
+  });
+  
+  // 3. 复制处理后的文本到剪贴板
+  if (processedImages > 0 || processedLinks > 0) {
+    await window.docSiteUtils.copyToClipboard(processedMarkdown);
+    window.docSiteUtils.showNotification(`处理完成: ${processedImages}/${imageCount} 张图片上传成功, ${processedLinks}/${linkCount} 个链接处理成功。内容已复制到剪贴板，请手动粘贴替换。`, 'success', 8000);
+  } else {
+    window.docSiteUtils.showNotification('未找到需要处理的图片或链接', 'info');
+  }
+}
+
+// 处理 Markdown 中的图片
+async function processImages(markdown, progressCallback) {
+  let result = markdown;
   
   // 匹配 Markdown 图片语法: ![alt](url)
   const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
   let match;
-  let uploadCount = 0;
-  let failCount = 0;
-  let replacements = [];
-  let totalImages = 0;
-  let processedImages = 0;
+  let imageMatches = [];
   
-  // 计算需要上传的图片总数
-  let imagesToUpload = [];
-  while ((match = imageRegex.exec(processedMarkdown)) !== null) {
-    const [fullMatch, altText, imageUrl] = match;
-    
-    // 跳过已经是上传服务的图片
-    if (imageUrl.includes('docs.grapecity.com.cn/documentsite/api/upload') || 
-        imageUrl.includes('/DOCUMENT_SITE_LINK_PREFIX_HERE/document-site-files/') ||
-        imageUrl.includes('docs.grapecity.com.cn/document-site-files/')) {
-      console.log('跳过已上传的图片:', imageUrl);
-      continue;
-    }
-    
-    imagesToUpload.push({fullMatch, altText, imageUrl});
+  // 收集所有图片匹配项
+  while ((match = imageRegex.exec(markdown)) !== null) {
+    imageMatches.push({fullMatch: match[0], altText: match[1], imageUrl: match[2]});
   }
   
-  totalImages = imagesToUpload.length;
-  
-  if (totalImages === 0) {
-    // 即使没有图片需要上传，也返回处理过换行符的文本
-    if (processedMarkdown !== markdown) {
-      await window.docSiteUtils.copyToClipboard(processedMarkdown);
-      window.docSiteUtils.showNotification('已移除换行标签和多余空行，内容已复制到剪贴板，请手动粘贴替换。', 'success', 5000);
-    } else {
-      window.docSiteUtils.showNotification('未找到需要处理的内容', 'info');
-    }
-    return;
+  if (imageMatches.length === 0) {
+    if (progressCallback) progressCallback(0, 0);
+    return result;
   }
   
-  window.docSiteUtils.showNotification(`开始处理 ${totalImages} 张图片...`, 'info');
-  
-  // 先获取 rootId，只获取一次
+  // 获取 rootId，只获取一次
   let rootId = null;
   try {
-    window.docSiteUtils.updateProgress(0, totalImages, '正在获取 rootId...');
     rootId = await getRootId();
     console.log('获取到 rootId:', rootId);
   } catch (error) {
     console.error('获取 rootId 失败:', error);
     window.docSiteUtils.showNotification('获取 rootId 失败，无法上传图片', 'error');
-    return;
+    return result;
   }
   
-  // 串行处理每个图片
-  for (const {fullMatch, altText, imageUrl} of imagesToUpload) {
-    processedImages++;
-    window.docSiteUtils.updateProgress(processedImages, totalImages, `正在上传图片 ${processedImages}/${totalImages}: ${getShortFilename(imageUrl)}`);
+  // 处理每个图片
+  for (let i = 0; i < imageMatches.length; i++) {
+    const {fullMatch, altText, imageUrl} = imageMatches[i];
     
+    // 检查是否需要跳过
+    if (isImageAlreadyProcessed(imageUrl)) {
+      console.log('跳过已处理的图片:', imageUrl);
+      if (progressCallback) progressCallback(i, imageMatches.length);
+      continue;
+    }
+    
+    // 上传图片
     try {
-      console.log(`处理图片 ${processedImages}/${totalImages}: ${imageUrl}`);
       const newUrl = await uploadImage(imageUrl, rootId);
       
       if (newUrl) {
         const newImageMarkdown = `![${altText}](${newUrl})`;
-        replacements.push({
-          original: fullMatch,
-          replacement: newImageMarkdown
-        });
-        uploadCount++;
+        result = result.replace(fullMatch, newImageMarkdown);
         console.log(`图片上传成功: ${imageUrl} -> ${newUrl}`);
-        window.docSiteUtils.updateProgress(processedImages, totalImages, `图片 ${processedImages}/${totalImages} 上传成功`);
-      } else {
-        failCount++;
-        console.error(`图片上传失败: ${imageUrl}`);
-        window.docSiteUtils.updateProgress(processedImages, totalImages, `图片 ${processedImages}/${totalImages} 上传失败`, 'warning');
       }
-      
-      // 添加延迟，避免服务器过载
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
     } catch (error) {
       console.error(`上传图片失败: ${imageUrl}`, error);
-      failCount++;
-      window.docSiteUtils.updateProgress(processedImages, totalImages, `图片 ${processedImages}/${totalImages} 上传出错: ${error.message}`, 'error');
-      
-      // 出错后稍微多等一会
-      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-  }
-  
-  // 替换原文本中的图片链接
-  replacements.sort((a, b) => {
-    return processedMarkdown.indexOf(b.original) - processedMarkdown.indexOf(a.original);
-  });
-  
-  replacements.forEach(({ original, replacement }) => {
-    processedMarkdown = processedMarkdown.replace(original, replacement);
-  });
-  
-  // 如果有处理的图片或移除了换行符，复制到剪贴板
-  if (uploadCount > 0 || failCount > 0 || processedMarkdown !== markdown) {
-    await window.docSiteUtils.copyToClipboard(processedMarkdown);
-    let message = '';
-    if (uploadCount > 0 || failCount > 0) {
-      message = `图片处理完成: ${uploadCount} 张上传成功, ${failCount} 张失败。`;
-    }
-    if (processedMarkdown !== markdown) {
-      message += '换行标签和多余空行已移除。';
-    }
-    message += '内容已复制到剪贴板，请手动粘贴替换。';
     
-    window.docSiteUtils.showNotification(message, failCount > 0 ? 'warning' : 'success', 8000);
+    // 更新进度
+    if (progressCallback) progressCallback(i + 1, imageMatches.length);
+    
+    // 添加延迟，避免服务器过载
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
+  
+  return result;
 }
 
-// 获取文件名的简短版本，用于显示
-function getShortFilename(url) {
-  try {
-    const filename = getFilenameFromUrl(url);
-    // 如果文件名太长，截断显示
-    if (filename.length > 20) {
-      return filename.substring(0, 17) + '...';
+// 处理 Markdown 中的普通链接
+async function processLinks(markdown, progressCallback) {
+  let result = markdown;
+  
+  // 匹配 Markdown 链接语法: [text](url)
+  const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+  let match;
+  let linkMatches = [];
+  
+  // 收集所有链接匹配项
+  while ((match = linkRegex.exec(markdown)) !== null) {
+    // 跳过图片链接（已经处理过）
+    if (match[0].startsWith('![')) {
+      continue;
     }
-    return filename;
-  } catch (e) {
-    return '图片';
+    linkMatches.push({fullMatch: match[0], text: match[1], url: match[2]});
   }
+  
+  if (linkMatches.length === 0) {
+    if (progressCallback) progressCallback(0, 0);
+    return result;
+  }
+  
+  // 获取产品 ID
+  const productId = getProductIdFromUrl();
+  if (!productId) {
+    console.error('无法获取产品 ID，跳过链接处理');
+    if (progressCallback) progressCallback(0, linkMatches.length);
+    return result;
+  }
+  
+  // 处理每个链接
+  for (let i = 0; i < linkMatches.length; i++) {
+    const {fullMatch, text, url} = linkMatches[i];
+    
+    // 检查是否需要跳过
+    if (isLinkAlreadyProcessed(url)) {
+      console.log('跳过已处理的链接:', url);
+      if (progressCallback) progressCallback(i, linkMatches.length);
+      continue;
+    }
+    
+    // 搜索链接
+    try {
+      const searchResults = await searchDocs(productId, text);
+      
+      if (searchResults.length > 0) {
+        // 使用第一个结果
+        const bestMatch = searchResults[0];
+        const newLink = `gcdocsite__documentlink?toc-item-id=${bestMatch.tocItemId}`;
+        const newLinkMarkdown = `[${text}](${newLink})`;
+        result = result.replace(fullMatch, newLinkMarkdown);
+        console.log(`链接处理成功: ${url} -> ${newLink}`);
+      }
+    } catch (error) {
+      console.error(`处理链接失败: ${url}`, error);
+    }
+    
+    // 更新进度
+    if (progressCallback) progressCallback(i + 1, linkMatches.length);
+    
+    // 添加延迟，避免服务器过载
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  
+  return result;
+}
+
+// 检查图片是否已经处理过
+function isImageAlreadyProcessed(url) {
+  return url.includes('docs.grapecity.com.cn/documentsite/api/upload') || 
+         url.includes('/DOCUMENT_SITE_LINK_PREFIX_HERE/document-site-files/') ||
+         url.includes('docs.grapecity.com.cn/document-site-files/');
+}
+
+// 检查链接是否已经处理过
+function isLinkAlreadyProcessed(url) {
+  return url.startsWith('gcdocsite__documentlink?toc-item-id') ||
+         isImageAlreadyProcessed(url);
+}
+
+// 从 URL 获取产品 ID
+function getProductIdFromUrl() {
+  const url = window.location.href;
+  const match = url.match(/ArticleEdit\/([^?.]+)/);
+    return match ? match[1] : null;
+}
+
+// 搜索文档
+async function searchDocs(productId, keyword) {
+  const url = `https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productId}/tocItem/search?keyword=${encodeURIComponent(keyword)}`;
+  
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('搜索请求失败');
+  }
+  
+  const data = await response.json();
+  
+  // 合并所有结果
+  const allResults = [
+    ...(data.helpDocResult || []),
+    ...(data.apiDocResult || []),
+    ...(data.demoDocResult || [])
+  ];
+  
+  // 排序：完全匹配的结果放在前面
+  const keywordLower = keyword.toLowerCase();
+  allResults.sort((a, b) => {
+    const aExactMatch = a.text.toLowerCase() === keywordLower || a.displayName.toLowerCase() === keywordLower;
+    const bExactMatch = b.text.toLowerCase() === keywordLower || b.displayName.toLowerCase() === keywordLower;
+    
+    if (aExactMatch && !bExactMatch) return -1;
+    if (!aExactMatch && bExactMatch) return 1;
+    return 0;
+  });
+  
+  return allResults;
 }
 
 // 上传图片到服务器

@@ -31,13 +31,6 @@
       },
       "description": "格式化选中的代码"
     },
-    "check_span_tags": {
-      "suggested_key": {
-        "default": "Alt+Shift+S",
-        "mac": "Alt+Shift+S"
-      },
-      "description": "检查 span 标签"
-    },
     "upload_images": {
       "suggested_key": {
         "default": "Alt+Shift+U",
