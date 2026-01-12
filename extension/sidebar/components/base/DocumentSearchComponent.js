@@ -27,7 +27,7 @@ class DocumentSearchComponent extends BaseComponent {
   }
 
   getTabLabel(tabId) {
-    return document.querySelector(`[data-tab-id="${tabId}"]`)?.textContent || tabId;
+    return document.querySelector(`[data-tab-id="${tabId}"]`)?.dataset.label || tabId;
   }
 
   clearResults() {
@@ -278,6 +278,7 @@ class DocumentSearchComponent extends BaseComponent {
       const button = document.createElement('button');
       button.className = 'tab-button';
       button.dataset.tabId = tabId;
+      button.dataset.label = label;
       button.textContent = `${label} (${results.length})`;
       button.addEventListener('click', () => this.switchTab(tabId));
       this.tabHeader.appendChild(button);
@@ -329,7 +330,7 @@ class DocumentSearchComponent extends BaseComponent {
     // 更新当前标签页的结果
     const currentTab = document.querySelector('.tab-button.active');
     if (currentTab) {
-      const tabId = currentTab.getAttribute('data-tab');
+      const tabId = currentTab.getAttribute('data-tab-id');
       const results = Array.from(this.searchResults.get(tabId)?.values() || [])
         .filter(r => `${r.productID}-${r.tocItemId}` !== resultId);
       this.updateTypeTab(tabId, this.getTabLabel(tabId), results);
@@ -350,7 +351,7 @@ class DocumentSearchComponent extends BaseComponent {
           const result = {
             title: content.title || item.text || item.displayName,
             message: config.getMessage ? config.getMessage(content.markdownContent) : '',
-            content: config.getContent ? config.getContent(content.markdownContent) : '',
+            content: config.getMessage ? config.getMessage(content.markdownContent) : '',
             url: this.getDocUrl(productID, item.id, item.tocItemId),
             path: item.documentPath,
             tocItemId: item.tocItemId,

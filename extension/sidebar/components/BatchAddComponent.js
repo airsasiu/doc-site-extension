@@ -230,15 +230,7 @@ class BatchAddComponent extends BaseComponent {
       .tab-btn.active {
         color: #1890ff;
         border-bottom-color: #1890ff;
-      }
-      
-      .tab-content {
-        display: none;
-      }
-      
-      .tab-content.active {
-        display: block;
-      }
+      }      
       
       /* 警告文本样式 */
       .warning-text {
