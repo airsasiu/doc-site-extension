@@ -142,6 +142,46 @@ async function processImages(markdown, imageMatches, progressCallback) {
   return result;
 }
 
+// 处理 docs.grapecity.com.cn 开头的链接
+async function processGrapeCityLink(url, text, productId) {
+  // 检查是否是 docs.grapecity.com.cn 开头的链接
+  if (!url.startsWith('https://docs.grapecity.com.cn/')) {
+    return null;
+  }
+  
+  try {
+    // 提取 documentPath 和锚点
+    const urlObj = new URL(url);
+    const documentPath = urlObj.pathname;
+    const hash = urlObj.hash; // 提取锚点部分
+    
+    if (!documentPath) {
+      return null;
+    }
+    
+    // 发送请求获取对应的 tocItem
+    const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productId}/tocItem?documentPath=${encodeURIComponent(documentPath)}`);
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    // 检查是否获取到了有效的 tocItemId
+    if (data && data.tocItemId) {
+      // 保留锚点
+      const newLink = `gcdocsite__documentlink?toc-item-id=${data.tocItemId}${hash}`;
+      return `[${text}](${newLink})`;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`处理 docs.grapecity.com.cn 链接失败: ${url}`, error);
+    return null;
+  }
+}
+
 // 处理 Markdown 中的普通链接
 async function processLinks(markdown, linkMatches, progressCallback) {
   let result = markdown;
@@ -162,21 +202,36 @@ async function processLinks(markdown, linkMatches, progressCallback) {
   // 处理每个链接
   for (let i = 0; i < linkMatches.length; i++) {
     const {fullMatch, text, url} = linkMatches[i];
+    let newLinkMarkdown = null;
     
-    // 搜索链接
-    try {
-      const searchResults = await searchDocs(productId, text);
-      
-      if (searchResults.length > 0) {
-        // 使用第一个结果
-        const bestMatch = searchResults[0];
-        const newLink = `gcdocsite__documentlink?toc-item-id=${bestMatch.tocItemId}`;
-        const newLinkMarkdown = `[${text}](${newLink})`;
-        result = result.replace(fullMatch, newLinkMarkdown);
-        console.log(`链接处理成功: ${url} -> ${newLink}`);
+    // 1. 首先尝试处理 docs.grapecity.com.cn 开头的链接
+    if (url.startsWith('https://docs.grapecity.com.cn/')) {
+      newLinkMarkdown = await processGrapeCityLink(url, text, productId);
+    }
+    
+    // 2. 如果不是 docs.grapecity.com.cn 链接，或者处理失败，尝试搜索链接
+    if (!newLinkMarkdown) {
+      try {
+        const urlObj = new URL(url);
+        const hash = urlObj.hash; // 提取锚点部分
+        
+        const searchResults = await searchDocs(productId, text);
+        
+        if (searchResults.length > 0) {
+          // 使用第一个结果
+          const bestMatch = searchResults[0];
+          const newLink = `gcdocsite__documentlink?toc-item-id=${bestMatch.tocItemId}${hash}`;
+          newLinkMarkdown = `[${text}](${newLink})`;
+        }
+      } catch (error) {
+        console.error(`处理链接失败: ${url}`, error);
       }
-    } catch (error) {
-      console.error(`处理链接失败: ${url}`, error);
+    }
+    
+    // 更新链接
+    if (newLinkMarkdown) {
+      result = result.replace(fullMatch, newLinkMarkdown);
+      console.log(`链接处理成功: ${url} -> ${newLinkMarkdown}`);
     }
     
     // 更新进度
