@@ -46,5 +46,16 @@ export const CHECK_ITEMS = {
     name: '类型=注意',
     check: (content) => content.includes('类型=注意'),
     message: '包含 "类型=注意" 字样'
+  },
+
+  grapecityLink: {
+    id: 'grapecityLink',
+    name: 'DocSite 后台链接',
+    check: (content) => {
+      // 匹配各种形式的docs.grapecity.com.cn链接
+      const regex = /docs\.grapecity\.com\.cn\/(?:[^\s"')]+|"[^"]*"|\([^)]*\))/gi;
+      return regex.test(content);
+    },
+    message: '包含 docs.grapecity.com.cn 链接，建议转换为内部链接格式'
   }
 };
