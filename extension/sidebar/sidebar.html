@@ -6,32 +6,48 @@
 </head>
 <body>
   <div class="sidebar-container">
-    <div class="search-header">
-      <!-- 搜索分类 -->
-      <div class="section-title">搜索相关</div>
-      <input type="text" class="search-input" placeholder="搜索文档内容...">
-      <div class="view-toggle">
-        <button class="view-toggle-btn active" data-view="list">列表视图</button>
-        <button class="view-toggle-btn" data-view="tree">树形视图</button>
-      </div>
-      <button class="search-button">搜索</button>
-      
-      <!-- 页面操作分类 -->
-      <div class="section-title">页面操作</div>
-      <button class="routine-check-button">常规检查</button>
-      <button class="batch-add-button">批量添加页面</button>
-    </div>
+    <!-- 顶部进度条 -->
     <div class="search-progress-container">
       <div class="progress-text"></div>
       <div class="progress-bar-container">
         <div class="progress-bar"></div>
       </div>
     </div>
-    <div class="tab-container">
-      <div class="tab-header"></div>
-      <div class="tab-content"></div>
+    
+    <!-- 主要Tab导航 -->
+    <div class="main-tab-header">
+      <button class="main-tab-btn active" data-tab="search">搜索</button>
+      <button class="main-tab-btn" data-tab="page-operations">页面操作</button>
     </div>
     
+    <!-- 搜索Tab内容 -->
+    <div class="main-tab-content active" id="search-tab">
+      <div class="search-section">
+        <input type="text" class="search-input" placeholder="搜索文档内容...">
+        <div class="search-actions">
+          <button class="search-button">搜索</button>
+          <button class="routine-check-button">常规检查</button>
+        </div>
+      </div>
+      
+      <!-- 搜索结果区域 -->
+      <div class="results-section">
+        <div class="results-header">
+          <div class="result-count"></div>
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" data-view="list">列表视图</button>
+            <button class="view-toggle-btn" data-view="tree">树形视图</button>
+          </div>
+        </div>
+        <div class="tab-container">
+          <div class="tab-header"></div>
+          <div class="tab-content"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 页面操作Tab内容 -->
+    <div class="main-tab-content" id="page-operations-tab"></div>
   </div>
   <script type="module" src="sidebar.js"></script>
 </body>

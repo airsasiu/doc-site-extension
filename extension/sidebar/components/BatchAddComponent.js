@@ -4,433 +4,110 @@ import DocsAPI from '../services/api.js';
 class BatchAddComponent extends BaseComponent {
   constructor(progressBar) {
     super(progressBar);
-    this.initModal();
+    this.initContent();
   }
 
-  initModal() {
-    // 创建模态框元素
-    const modal = document.createElement('div');
-    modal.className = 'batch-add-modal';
-    modal.innerHTML = `
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>批量页面操作</h3>
-          <div style="display: flex; gap: 8px;">
-            <button class="refresh-btn" title="重新获取目录">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 12h20M12 2A10 10 0 1 0 12 22 10 10 0 1 0 12 2z"></path>
-              </svg>
-              刷新目录
-            </button>
-            <button class="close-btn">&times;</button>
+  initContent() {
+    // 获取页面操作tab元素
+    const pageOperationsTab = document.getElementById('page-operations-tab');
+    
+    // 创建批量操作内容区域
+    const batchOperationsContent = document.createElement('div');
+    batchOperationsContent.className = 'batch-operations-content';
+    batchOperationsContent.innerHTML = `
+      <div class="batch-tabs">
+        <button class="batch-tab-btn active" data-tab="add">添加页面</button>
+        <button class="batch-tab-btn" data-tab="delete">删除页面</button>
+      </div>
+      
+      <!-- 批量操作内容 -->
+      <div class="batch-content">
+        <!-- 添加页面选项卡 -->
+        <div class="batch-tab-content active" id="batch-add-tab">
+          <div class="form-group">
+            <label for="parent-page-search">搜索父页面:</label>
+            <input type="text" id="parent-page-search" class="parent-page-search" placeholder="输入父页面名称进行过滤...">
+            <label for="parent-page-select">父页面:</label>
+            <select id="parent-page-select" class="parent-page-select" size="8"></select>
+          </div>
+          <div class="form-group">
+            <label for="page-names">页面名称列表 (换行分隔):</label>
+            <textarea id="page-names" class="page-names" rows="8" placeholder="例如:\nFVSCHEDULE\nFV\nPV\nPMT"></textarea>
           </div>
         </div>
-        <div class="modal-tabs">
-          <button class="tab-btn active" data-tab="add">添加页面</button>
-          <button class="tab-btn" data-tab="delete">删除页面</button>
-        </div>
-        <div class="modal-body">
-          <!-- 添加页面选项卡 -->
-          <div class="tab-content active" id="add-tab">
-            <div class="form-group">
-              <label for="parent-page-search">搜索父页面:</label>
-              <input type="text" id="parent-page-search" class="parent-page-search" placeholder="输入父页面名称进行过滤...">
-              <label for="parent-page-select">父页面:</label>
-              <select id="parent-page-select" class="parent-page-select" size="10"></select>
-            </div>
-            <div class="form-group">
-              <label for="page-names">页面名称列表 (换行分隔):</label>
-              <textarea id="page-names" class="page-names" rows="10" placeholder="例如:\nFVSCHEDULE\nFV\nPV\nPMT"></textarea>
-            </div>
+        
+        <!-- 删除页面选项卡 -->
+        <div class="batch-tab-content" id="batch-delete-tab">
+          <div class="form-group">
+            <label for="delete-page-search">搜索要删除的页面:</label>
+            <input type="text" id="delete-page-search" class="delete-page-search" placeholder="输入页面名称进行过滤...">
+            <label for="delete-page-select">选择要删除的页面 (可多选):</label>
+            <select id="delete-page-select" class="delete-page-select" size="10" multiple></select>
           </div>
-          
-          <!-- 删除页面选项卡 -->
-          <div class="tab-content" id="delete-tab">
-            <div class="form-group">
-              <label for="delete-page-search">搜索要删除的页面:</label>
-              <input type="text" id="delete-page-search" class="delete-page-search" placeholder="输入页面名称进行过滤...">
-              <label for="delete-page-select">选择要删除的页面 (可多选):</label>
-              <select id="delete-page-select" class="delete-page-select" size="10" multiple></select>
-            </div>
-            <div class="form-group">
-              <div class="delete-options">
-                <div class="delete-option">
-                  <input type="radio" id="delete-to-recycle" name="delete-method" value="recycle" checked>
-                  <label for="delete-to-recycle">移至回收站（可恢复）</label>
-                </div>
-                <div class="delete-option">
-                  <input type="radio" id="delete-permanently" name="delete-method" value="permanent">
-                  <label for="delete-permanently">彻底删除（不可恢复）</label>
-                </div>
+          <div class="form-group">
+            <div class="delete-options">
+              <div class="delete-option">
+                <input type="radio" id="delete-to-recycle" name="delete-method" value="recycle" checked>
+                <label for="delete-to-recycle">移至回收站（可恢复）</label>
               </div>
-              <p class="warning-text">警告：彻底删除操作不可恢复，请务必谨慎操作！</p>
+              <div class="delete-option">
+                <input type="radio" id="delete-permanently" name="delete-method" value="permanent">
+                <label for="delete-permanently">彻底删除（不可恢复）</label>
+              </div>
             </div>
+            <p class="warning-text">警告：彻底删除操作不可恢复，请务必谨慎操作！</p>
           </div>
-          
-          <!-- 进度条 -->
-          <div class="modal-progress" style="display: none;">
-            <div class="progress-text">正在处理...</div>
-            <div class="progress-bar-container">
-              <div class="progress-bar"></div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="cancel-btn">取消</button>
-          <button class="confirm-btn" id="action-btn">确定</button>
         </div>
       </div>
+      
+      <!-- 进度条 -->
+      <div class="batch-progress-container">
+        <div class="progress-text"></div>
+        <div class="progress-bar-container">
+          <div class="progress-bar"></div>
+        </div>
+      </div>
+      
+      <!-- 操作按钮 -->
+      <div class="batch-actions">
+        <button class="refresh-btn" title="重新获取目录">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 12h20M12 2A10 10 0 1 0 12 22 10 10 0 1 0 12 2z"></path>
+          </svg>
+          刷新目录
+        </button>
+        <button class="batch-confirm-btn" id="action-btn">确定</button>
+      </div>
+      
+      <!-- 结果显示区域 -->
+      <div class="batch-result-container"></div>
     `;
     
-    // 添加样式
-    const style = document.createElement('style');
-    style.textContent = `
-      .batch-add-modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.5);
-      }
-      
-      .modal-content {
-        background-color: #fefefe;
-        margin: 5% auto;
-        padding: 0;
-        border: 1px solid #888;
-        width: 80%;
-        max-width: 600px;
-        max-height: 90vh;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
-        display: flex;
-        flex-direction: column;
-      }
-      
-      .modal-header {
-        padding: 15px 20px;
-        background-color: #f5f5f5;
-        border-bottom: 1px solid #ddd;
-        border-radius: 8px 8px 0 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      
-      .modal-header h3 {
-        margin: 0;
-        font-size: 18px;
-      }
-      
-      .close-btn {
-        background: none;
-        border: none;
-        font-size: 24px;
-        font-weight: bold;
-        cursor: pointer;
-        color: #999;
-        transition: color 0.3s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        border-radius: 4px;
-      }
-      
-      .close-btn:hover {
-        color: #666;
-        background-color: #f5f5f5;
-      }
-      
-      .refresh-btn {
-        background-color: #1890ff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 6px 12px;
-        font-size: 12px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        transition: background-color 0.3s ease;
-      }
-      
-      .refresh-btn:hover {
-        background-color: #40a9ff;
-      }
-      
-      .modal-body {
-        padding: 20px;
-        flex-grow: 1;
-        overflow-y: auto;
-        max-height: calc(100% - 140px);
-      }
-      
-      .form-group {
-        margin-bottom: 15px;
-      }
-      
-      .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-      }
-      
-      .parent-page-search,
-      .parent-page-select,
-      .page-names {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        margin-bottom: 8px;
-      }
-      
-      .parent-page-search,
-      .delete-page-search {
-        margin-bottom: 12px;
-      }
-      
-      .parent-page-select,
-      .delete-page-select {
-        overflow-y: auto;
-        margin-bottom: 0;
-      }
-      
-      /* 选项卡样式 */
-      .modal-tabs {
-        display: flex;
-        border-bottom: 1px solid #ddd;
-        margin-bottom: 20px;
-      }
-      
-      .tab-btn {
-        background: none;
-        border: none;
-        padding: 10px 20px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: bold;
-        color: #666;
-        border-bottom: 2px solid transparent;
-        transition: all 0.3s ease;
-      }
-      
-      .tab-btn:hover {
-        background-color: #f5f5f5;
-        color: #1890ff;
-      }
-      
-      .tab-btn.active {
-        color: #1890ff;
-        border-bottom-color: #1890ff;
-      }      
-      
-      /* 选项卡内容样式 */
-      .tab-content {
-        display: none;
-      }
-      
-      .tab-content.active {
-        display: block;
-      }
-      
-      /* 警告文本样式 */
-      .warning-text {
-        color: #f44336;
-        font-weight: bold;
-        background-color: #ffebee;
-        padding: 10px;
-        border-radius: 4px;
-        margin-top: 10px;
-      }
-      
-      /* 删除选项样式 */
-      .delete-options {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin: 15px 0;
-        padding: 15px;
-        background-color: #f5f5f5;
-        border-radius: 4px;
-      }
-      
-      .delete-option {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-      }
-      
-      .delete-option input[type="radio"] {
-        cursor: pointer;
-      }
-      
-      .delete-option label {
-        cursor: pointer;
-        font-weight: normal;
-        margin: 0;
-      }
-      
-      /* 彻底删除选项特殊样式 */
-      #delete-permanently {
-        accent-color: #ff4d4f;
-      }
-      
-      #delete-permanently + label {
-        color: #ff4d4f;
-        font-weight: bold;
-      }
-      
-      /* 删除页面搜索和选择框样式 */
-      .delete-page-search,
-      .delete-page-select {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        margin-bottom: 8px;
-      }
-      
-      .page-names {
-        resize: vertical;
-        font-family: monospace;
-      }
-      
-      .modal-footer {
-        padding: 15px 20px;
-        background-color: #f5f5f5;
-        border-top: 1px solid #ddd;
-        border-radius: 0 0 8px 8px;
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-      }
-      
-      .cancel-btn,
-      .confirm-btn {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: background-color 0.3s ease;
-      }
-      
-      .cancel-btn {
-        background-color: #f0f0f0;
-        color: #666;
-      }
-      
-      .cancel-btn:hover {
-        background-color: #d9d9d9;
-      }
-      
-      .confirm-btn {
-        background-color: #52c41a;
-        color: white;
-      }
-      
-      .confirm-btn:hover {
-        background-color: #73d13d;
-      }
-      
-      .batch-add-result {
-        margin-top: 15px;
-        padding: 10px;
-        border-radius: 4px;
-        font-size: 14px;
-      }
-      
-      .batch-add-result.success {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-      }
-      
-      .batch-add-result.error {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-      }
-      
-      .modal-progress {
-        margin-top: 20px;
-        padding: 15px;
-        background-color: #fafafa;
-        border-radius: 4px;
-        font-size: 14px;
-      }
-      
-      .modal-progress .progress-text {
-        margin-bottom: 10px;
-        font-weight: bold;
-        color: #666;
-        text-align: center;
-      }
-      
-      .modal-progress .progress-bar-container {
-        margin-top: 8px;
-        background: #f0f0f0;
-        border-radius: 4px;
-        height: 8px;
-        overflow: hidden;
-      }
-      
-      .modal-progress .progress-bar {
-        height: 100%;
-        background: #1890ff;
-        transition: width 0.3s ease;
-        border-radius: 4px;
-      }
-    `;
+    // 添加到页面操作tab中
+    pageOperationsTab.appendChild(batchOperationsContent);
     
-    document.head.appendChild(style);
-    document.body.appendChild(modal);
-    
-    this.modal = modal;
+    // 保存引用
+    this.container = batchOperationsContent;
     
     // 绑定事件
-    modal.querySelector('.close-btn').addEventListener('click', () => this.closeModal());
-    modal.querySelector('.cancel-btn').addEventListener('click', () => this.closeModal());
-    modal.querySelector('.confirm-btn').addEventListener('click', () => this.handleAction());
-    
-    // 点击模态框外部关闭
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        this.closeModal();
-      }
-    });
-    
-    // 按 ESC 键关闭
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isModalOpen()) {
-        this.closeModal();
-      }
-    });
-    
+    this.bindEvents();
+  }
+
+  bindEvents() {
     // 绑定选项卡切换事件
-    const tabBtns = modal.querySelectorAll('.tab-btn');
+    const tabBtns = this.container.querySelectorAll('.batch-tab-btn');
     tabBtns.forEach(btn => {
       btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
     });
     
     // 绑定删除页面搜索事件
-    const deleteSearchInput = modal.querySelector('#delete-page-search');
+    const deleteSearchInput = this.container.querySelector('#delete-page-search');
     if (deleteSearchInput) {
       deleteSearchInput.addEventListener('input', (e) => this.handleDeletePageSearch(e));
     }
     
     // 绑定刷新目录按钮事件
-    const refreshBtn = modal.querySelector('.refresh-btn');
+    const refreshBtn = this.container.querySelector('.refresh-btn');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', async () => {
         // 清除所有缓存
@@ -441,40 +118,18 @@ class BatchAddComponent extends BaseComponent {
           this.loadAllPages()
         ]);
         // 显示刷新成功消息
-        this.showModalResult('目录已刷新', 'success');
+        this.showResult('目录已刷新', 'success');
       });
     }
-  }
-
-  async openModal() {
-    this.modal.style.display = 'block';
-    this.currentTab = 'add';
-    await this.loadParentPages();
-    await this.loadAllPages();
+    
+    // 绑定确定按钮事件
+    const confirmBtn = this.container.querySelector('.batch-confirm-btn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => this.handleAction());
+    }
+    
     // 绑定搜索事件
     this.bindSearchEvent();
-  }
-
-  closeModal() {
-    this.modal.style.display = 'none';
-    // 清空表单
-    this.modal.querySelector('#page-names').value = '';
-    this.modal.querySelector('#parent-page-search').value = '';
-    this.modal.querySelector('#delete-page-search').value = '';
-    // 清空选择
-    const deleteSelect = this.modal.querySelector('#delete-page-select');
-    if (deleteSelect) {
-      deleteSelect.selectedIndex = -1;
-    }
-    // 移除结果信息
-    const resultDiv = this.modal.querySelector('.batch-add-result');
-    if (resultDiv) {
-      resultDiv.remove();
-    }
-  }
-
-  isModalOpen() {
-    return this.modal.style.display === 'block';
   }
 
   // 切换选项卡
@@ -482,31 +137,29 @@ class BatchAddComponent extends BaseComponent {
     this.currentTab = tabName;
     
     // 更新选项卡按钮状态
-    const tabBtns = this.modal.querySelectorAll('.tab-btn');
+    const tabBtns = this.container.querySelectorAll('.batch-tab-btn');
     tabBtns.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabName);
     });
     
     // 更新选项卡内容显示
-    const tabContents = this.modal.querySelectorAll('.tab-content');
+    const tabContents = this.container.querySelectorAll('.batch-tab-content');
     tabContents.forEach(content => {
-      content.classList.toggle('active', content.id === `${tabName}-tab`);
+      content.classList.toggle('active', content.id === `batch-${tabName}-tab`);
     });
   }
 
   // 绑定搜索事件
   bindSearchEvent() {
     // 父页面搜索事件
-    const parentSearchInput = this.modal.querySelector('#parent-page-search');
+    const parentSearchInput = this.container.querySelector('#parent-page-search');
     if (parentSearchInput) {
-      parentSearchInput.removeEventListener('input', this.handleParentPageSearch);
       parentSearchInput.addEventListener('input', (e) => this.handleParentPageSearch(e));
     }
     
     // 删除页面搜索事件
-    const deleteSearchInput = this.modal.querySelector('#delete-page-search');
+    const deleteSearchInput = this.container.querySelector('#delete-page-search');
     if (deleteSearchInput) {
-      deleteSearchInput.removeEventListener('input', this.handleDeletePageSearch);
       deleteSearchInput.addEventListener('input', (e) => this.handleDeletePageSearch(e));
     }
   }
@@ -523,7 +176,7 @@ class BatchAddComponent extends BaseComponent {
       }
       
       const versions = await DocsAPI.getDocVersions(productID);
-      const select = this.modal.querySelector('#delete-page-select');
+      const select = this.container.querySelector('#delete-page-select');
       
       // 清空现有选项
       select.innerHTML = '';
@@ -558,7 +211,7 @@ class BatchAddComponent extends BaseComponent {
 
   // 渲染所有页面选项（用于删除功能）
   renderAllPages(pages) {
-    const select = this.modal.querySelector('#delete-page-select');
+    const select = this.container.querySelector('#delete-page-select');
     // 清空现有选项
     select.innerHTML = '';
     
@@ -600,7 +253,7 @@ class BatchAddComponent extends BaseComponent {
       }
       
       const versions = await DocsAPI.getDocVersions(productID);
-      const select = this.modal.querySelector('#parent-page-select');
+      const select = this.container.querySelector('#parent-page-select');
       
       // 清空现有选项
       select.innerHTML = '<option value="">请选择父页面</option>';
@@ -635,7 +288,7 @@ class BatchAddComponent extends BaseComponent {
 
   // 渲染父页面选项
   renderParentPages(pages) {
-    const select = this.modal.querySelector('#parent-page-select');
+    const select = this.container.querySelector('#parent-page-select');
     // 保留默认选项
     select.innerHTML = '<option value="">请选择父页面</option>';
     
@@ -668,7 +321,7 @@ class BatchAddComponent extends BaseComponent {
 
   // 控制确定按钮的禁用状态
   setConfirmButtonDisabled(disabled) {
-    const confirmBtn = this.modal.querySelector('.confirm-btn');
+    const confirmBtn = this.container.querySelector('.batch-confirm-btn');
     if (confirmBtn) {
       confirmBtn.disabled = disabled;
       if (disabled) {
@@ -701,17 +354,17 @@ class BatchAddComponent extends BaseComponent {
   // 批量添加页面
   async handleBatchAdd() {
     try {
-      const select = this.modal.querySelector('#parent-page-select');
-      const pageNamesText = this.modal.querySelector('#page-names').value;
+      const select = this.container.querySelector('#parent-page-select');
+      const pageNamesText = this.container.querySelector('#page-names').value;
       
       // 验证输入
       if (!select.value) {
-        this.showModalResult('请选择父页面', 'error');
+        this.showResult('请选择父页面', 'error');
         return;
       }
       
       if (!pageNamesText.trim()) {
-        this.showModalResult('请输入页面名称列表', 'error');
+        this.showResult('请输入页面名称列表', 'error');
         return;
       }
       
@@ -721,7 +374,7 @@ class BatchAddComponent extends BaseComponent {
         .filter(name => name.length > 0);
       
       if (pageNames.length === 0) {
-        this.showModalResult('请输入有效的页面名称列表', 'error');
+        this.showResult('请输入有效的页面名称列表', 'error');
         return;
       }
       
@@ -730,7 +383,7 @@ class BatchAddComponent extends BaseComponent {
       const productID = this.getProductIDFromURL(currentUrl);
       
       if (!productID) {
-        this.showModalResult('无法获取产品ID', 'error');
+        this.showResult('无法获取产品ID', 'error');
         return;
       }
       
@@ -745,8 +398,6 @@ class BatchAddComponent extends BaseComponent {
       
       // 显示进度条
       this.progressBar.start(pageNames.length);
-      // 显示模态框内的进度条
-      this.showModalProgress();
       
       // 构建请求数据并批量创建页面
       const results = [];
@@ -778,29 +429,24 @@ class BatchAddComponent extends BaseComponent {
         
         // 更新进度
         this.progressBar.updateProgress(i + 1, pageNames.length);
-        // 更新模态框内的进度条
-        this.updateModalProgress(i + 1, pageNames.length);
       }
       
       // 隐藏进度条
       this.progressBar.reset();
-      // 隐藏模态框内的进度条
-      this.hideModalProgress();
       
       // 显示结果
       this.showBatchResult(results);
     } catch (error) {
       console.error('批量添加页面失败:', error);
       this.progressBar.reset();
-      this.hideModalProgress();
-      this.showModalResult(`批量添加页面失败: ${error.message}`, 'error');
+      this.showResult(`批量添加页面失败: ${error.message}`, 'error');
     }
   }
 
   // 批量删除页面
   async handleBatchDelete() {
     try {
-      const select = this.modal.querySelector('#delete-page-select');
+      const select = this.container.querySelector('#delete-page-select');
       
       // 获取选中的页面 ID
       const selectedOptions = Array.from(select.selectedOptions);
@@ -809,12 +455,12 @@ class BatchAddComponent extends BaseComponent {
       
       // 验证输入
       if (selectedPageIds.length === 0) {
-        this.showModalResult('请选择要删除的页面', 'error');
+        this.showResult('请选择要删除的页面', 'error');
         return;
       }
       
       // 获取删除方式
-      const deleteMethod = this.modal.querySelector('input[name="delete-method"]:checked').value;
+      const deleteMethod = this.container.querySelector('input[name="delete-method"]:checked').value;
       const isPermanent = deleteMethod === 'permanent';
       
       // 确认删除
@@ -828,8 +474,6 @@ class BatchAddComponent extends BaseComponent {
       
       // 显示进度条
       this.progressBar.start(selectedPageIds.length);
-      // 显示模态框内的进度条
-      this.showModalProgress();
       
       // 批量删除页面
       const results = [];
@@ -849,14 +493,10 @@ class BatchAddComponent extends BaseComponent {
         
         // 更新进度
         this.progressBar.updateProgress(i + 1, selectedPageIds.length);
-        // 更新模态框内的进度条
-        this.updateModalProgress(i + 1, selectedPageIds.length);
       }
       
       // 隐藏进度条
       this.progressBar.reset();
-      // 隐藏模态框内的进度条
-      this.hideModalProgress();
       
       // 显示结果
       this.showBatchResult(results);
@@ -866,8 +506,7 @@ class BatchAddComponent extends BaseComponent {
     } catch (error) {
       console.error('批量删除页面失败:', error);
       this.progressBar.reset();
-      this.hideModalProgress();
-      this.showModalResult(`批量删除页面失败: ${error.message}`, 'error');
+      this.showResult(`批量删除页面失败: ${error.message}`, 'error');
     }
   }
 
@@ -878,69 +517,29 @@ class BatchAddComponent extends BaseComponent {
     return `/${parentPath}/${pagePath}`;
   }
 
-  showModalResult(message, type) {
+  // 显示结果信息
+  showResult(message, type) {
     // 移除现有结果
-    const existingResult = this.modal.querySelector('.batch-add-result');
+    const existingResult = this.container.querySelector('.batch-result-item');
     if (existingResult) {
       existingResult.remove();
     }
     
     // 创建新结果
     const resultDiv = document.createElement('div');
-    resultDiv.className = `batch-add-result ${type}`;
-    resultDiv.textContent = message;
-    
-    // 添加到模态框底部
-    this.modal.querySelector('.modal-body').appendChild(resultDiv);
-  }
-
-  // 显示模态框内的进度条
-  showModalProgress() {
-    const progressDiv = this.modal.querySelector('.modal-progress');
-    if (progressDiv) {
-      progressDiv.style.display = 'block';
-    }
-  }
-  
-  // 更新模态框内的进度条
-  updateModalProgress(current, total) {
-    const progressBar = this.modal.querySelector('.modal-progress .progress-bar');
-    const progressText = this.modal.querySelector('.modal-progress .progress-text');
-    if (progressBar && progressText) {
-      const percentage = Math.round((current / total) * 100);
-      progressBar.style.width = `${percentage}%`;
-      progressText.textContent = `正在处理: ${current}/${total} (${percentage}%)`;
-    }
-  }
-  
-  // 隐藏模态框内的进度条
-  hideModalProgress() {
-    const progressDiv = this.modal.querySelector('.modal-progress');
-    if (progressDiv) {
-      progressDiv.style.display = 'none';
-      // 重置进度条宽度
-      const progressBar = this.modal.querySelector('.modal-progress .progress-bar');
-      if (progressBar) {
-        progressBar.style.width = '0%';
-      }
-    }
-  }
-  
-  showModalResult(message, type) {
-    // 移除现有结果
-    const existingResult = this.modal.querySelector('.batch-add-result');
-    if (existingResult) {
-      existingResult.remove();
-    }
-    
-    // 创建新结果
-    const resultDiv = document.createElement('div');
-    resultDiv.className = `batch-add-result ${type}`;
-    // 使用innerHTML而不是textContent，这样HTML内容就能正确渲染
+    resultDiv.className = `batch-result-item ${type}`;
     resultDiv.innerHTML = message;
     
-    // 添加到模态框底部
-    this.modal.querySelector('.modal-body').appendChild(resultDiv);
+    // 添加到结果容器
+    const resultContainer = this.container.querySelector('.batch-result-container');
+    resultContainer.appendChild(resultDiv);
+    
+    // 3秒后自动移除
+    setTimeout(() => {
+      if (resultDiv.parentNode) {
+        resultDiv.remove();
+      }
+    }, 3000);
   }
   
   showBatchResult(results) {
@@ -978,16 +577,16 @@ class BatchAddComponent extends BaseComponent {
     resultHtml += '</div>';
     
     // 显示结果
-    this.showModalResult(resultHtml, successCount === totalCount ? 'success' : 'error');
+    this.showResult(resultHtml, successCount === totalCount ? 'success' : 'error');
   }
-  
+
   // 辅助方法：获取当前标签页 URL
   async getCurrentTabUrl() {
     // 从 BaseComponent 或 URLUtils 中获取
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     return tabs[0].url;
   }
-  
+
   // 辅助方法：从 URL 中提取产品 ID
   getProductIDFromURL(url) {
     const match = url.match(/ArticleEdit\/([^?.]+)/);

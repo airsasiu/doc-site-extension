@@ -11,6 +11,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const checkComponent = new CheckComponent(progressBar);
   const batchAddComponent = new BatchAddComponent(progressBar);
   
+  // 主要Tab切换功能
+  const mainTabs = document.querySelectorAll('.main-tab-btn');
+  const mainTabContents = document.querySelectorAll('.main-tab-content');
+  
+  mainTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabId = tab.dataset.tab;
+      
+      // 移除所有active类
+      mainTabs.forEach(t => t.classList.remove('active'));
+      mainTabContents.forEach(c => c.classList.remove('active'));
+      
+      // 添加当前tab的active类
+      tab.classList.add('active');
+      document.getElementById(`${tabId}-tab`).classList.add('active');
+    });
+  });
+  
   // 绑定事件监听
   document.querySelector('.search-button')
     .addEventListener('click', () => searchComponent.handleSearch());
@@ -19,10 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
     .addEventListener('click', () => checkComponent.handleCheck());
     
 
-    
-  // 绑定批量添加页面按钮事件
-  document.querySelector('.batch-add-button')
-    .addEventListener('click', () => batchAddComponent.openModal());
   
   // 监听来自 content script 的消息
   chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
