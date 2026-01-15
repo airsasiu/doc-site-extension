@@ -10,6 +10,57 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: #f5f5f5;
+}
+
+/* 统一的标题样式 */
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin: 16px 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 统一的按钮样式 */
+.search-button,
+.routine-check-button,
+.batch-add-button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.search-button:hover,
+.routine-check-button:hover,
+.batch-add-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.search-button:active,
+.routine-check-button:active,
+.batch-add-button:active {
+  transform: translateY(0);
+}
+
+/* 保持原有按钮颜色区分 */
+.search-button {
+  background: #1890ff;
+  color: white;
+}
+
+.routine-check-button,
+.batch-add-button {
+  background: #52c41a;
+  color: white;
 }
 
 .search-header {
@@ -17,61 +68,60 @@ body {
 }
 
 .search-input {
-  width: calc(100% - 16px);
-  padding: 8px;
+  width: 100%;
+  padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  margin-bottom: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background-color: white;
+  box-sizing: border-box;
 }
 
-.search-button {
-  width: 100%;
-  padding: 8px;
-  background: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.search-input:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
-.search-button:disabled {
-  background: #d9d9d9;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.routine-check-button {
-  width: 100%;
-  padding: 8px;
-  background: #52c41a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 8px;
-}
-
-.routine-check-button:disabled {
-  background: #d9d9d9;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.batch-add-button {
-  width: 100%;
-  padding: 8px;
-  background: #52c41a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 8px;
-}
-
+/* 统一的禁用状态样式 */
+.search-button:disabled,
+.routine-check-button:disabled,
 .batch-add-button:disabled {
   background: #d9d9d9;
+  color: rgba(0, 0, 0, 0.25);
   cursor: not-allowed;
   opacity: 0.7;
+  transform: none;
+}
+
+/* 统一的视图切换按钮样式 */
+.view-toggle {
+  display: flex;
+  margin: 8px 0;
+  gap: 8px;
+}
+
+.view-toggle-btn {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.view-toggle-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.view-toggle-btn.active {
+  background: #1890ff;
+  color: white;
+  border-color: #1890ff;
 }
 
 .search-results {
@@ -337,66 +387,7 @@ body {
   border-radius: 4px;
 }
 
-.bottom-actions {
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #eee;
-  display: flex;
-  gap: 8px;
-  flex-direction: column;
-}
-
-.recheck-button {
-  width: 100%;
-  padding: 8px;
-  background: #52c41a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.recheck-button:hover {
-  background: #73d13d;
-}
-
-.recheck-button:disabled {
-  background: #d9d9d9;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.recheck-stats {
-  font-size: 12px;
-  color: #666;
-  text-align: center;
-  margin-top: 4px;
-}
-
-.clear-results-container {
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #eee;
-}
-
-.clear-results {
-  width: 100%;
-  padding: 8px;
-  background: #ff4d4f;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.clear-results:hover {
-  background: #ff7875;
-}
-
+/* 树形结构样式保持不变 */
 .tree-container {
   padding: 8px;
 }
@@ -448,102 +439,4 @@ body {
 
 .tree-item:hover {
   background: #f0f0f0;
-}
-
-.view-toggle {
-  display: flex;
-  margin-bottom: 8px;
-  gap: 4px;
-}
-
-.view-toggle-btn {
-  flex: 1;
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  background: #fff;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.view-toggle-btn.active {
-  background: #1890ff;
-  color: white;
-  border-color: #1890ff;
-}
-
-.format-section {
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #eee;
-}
-
-.format-code-button {
-  width: 100%;
-  padding: 8px;
-  background: #722ed1;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.format-code-button:hover {
-  background: #9254de;
-}
-
-.format-message {
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 4px;
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
-  color: #52c41a;
-  display: none;
-}
-
-.english-docs-buttons {
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #eee;
-  display: flex;
-  gap: 8px;
-  flex-direction: row;
-  flex-wrap: wrap;
-}
-
-.english-doc-button {
-  flex: 1;
-  min-width: 40px;
-  padding: 8px;
-  background: #722ed1;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.english-doc-button:hover {
-  background: #9254de;
-}
-
-.english-doc-button.spreadjs {
-  background: #1890ff;
-}
-
-.english-doc-button.spreadjs:hover {
-  background: #40a9ff;
-}
-
-.english-doc-button.switch-domain {
-  background: #13c2c2;
-}
-
-.english-doc-button.switch-domain:hover {
-  background: #36cfc9;
 }
