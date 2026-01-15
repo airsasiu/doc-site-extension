@@ -104,15 +104,15 @@
     <div class="description">配置从哪个产品的文档获取内容</div>
     
     <div class="form-row">
-      <label for="sourceProductId">源产品 ID</label>
-      <input type="text" id="sourceProductId" placeholder="例如: DsExcelForJava">
-      <div class="description">要获取文档的产品 ID，默认为当前产品</div>
+      <label for="sourceBaseUrl">源文档基础 URL</label>
+      <input type="text" id="sourceBaseUrl" placeholder="例如: https://developer.mescius.com/document-solutions/java-excel-api/docs/online">
+      <div class="description">要获取文档的基础 URL，例如 Java 产品的英文文档地址</div>
     </div>
     
     <div class="form-row">
-      <label for="targetProductId">目标产品 ID</label>
-      <input type="text" id="targetProductId" placeholder="例如: DsExcelForNet">
-      <div class="description">当前编辑的产品 ID，用于匹配文档路径</div>
+      <label for="sourceProductId">源产品 ID (可选)</label>
+      <input type="text" id="sourceProductId" placeholder="例如: 17ddf72d-a51a-42fe-a104-f69d4e8357fb">
+      <div class="description">要获取文档的产品 GUID，用于获取 TOC 结构，默认使用当前产品</div>
     </div>
     
     <div class="form-row">

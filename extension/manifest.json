@@ -8,7 +8,8 @@
     "sidePanel",
     "tabs",
     "scripting",
-    "contextMenus"
+    "contextMenus",
+    "storage"
   ],
   "host_permissions": [
     "https://docs.grapecity.com.cn/*",
@@ -43,7 +44,7 @@
         "default": "Alt+Shift+D",
         "mac": "Alt+Shift+D"
       },
-      "description": "从英文文档复制 Markdown 到剪贴板"
+      "description": "从配置的源地址复制 Markdown 到剪贴板"
     },
     "open_help": {
       "description": "打开帮助文档"
@@ -53,6 +54,7 @@
     "default_title": "DocSite Search Helper",
     "default_popup": "help/popup.html"
   },
+  "options_page": "options/options.html",
   "background": {
     "service_worker": "background.js",
     "type": "module"

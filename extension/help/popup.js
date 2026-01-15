@@ -7,6 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.close();
   });
   
+  // 打开配置页面按钮
+  document.getElementById('openOptions').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html') });
+    window.close();
+  });
+  
   // 打开帮助文档按钮
   document.getElementById('openHelp').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('help/help.html') });

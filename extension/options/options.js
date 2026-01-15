@@ -2,16 +2,16 @@
 
 // 默认配置
 const DEFAULT_CONFIG = {
+  sourceBaseUrl: '',
   sourceProductId: '',
-  targetProductId: '',
   docApiUrl: 'https://docs.grapecity.com.cn/documentsite/api'
 };
 
 // 保存配置
 function saveOptions() {
   const config = {
+    sourceBaseUrl: document.getElementById('sourceBaseUrl').value.trim(),
     sourceProductId: document.getElementById('sourceProductId').value.trim(),
-    targetProductId: document.getElementById('targetProductId').value.trim(),
     docApiUrl: document.getElementById('docApiUrl').value.trim()
   };
 
@@ -25,16 +25,16 @@ function loadOptions() {
   chrome.storage.sync.get(['docSiteHelperConfig'], (result) => {
     const config = { ...DEFAULT_CONFIG, ...result.docSiteHelperConfig };
     
+    document.getElementById('sourceBaseUrl').value = config.sourceBaseUrl;
     document.getElementById('sourceProductId').value = config.sourceProductId;
-    document.getElementById('targetProductId').value = config.targetProductId;
     document.getElementById('docApiUrl').value = config.docApiUrl;
   });
 }
 
 // 重置为默认值
 function resetOptions() {
+  document.getElementById('sourceBaseUrl').value = DEFAULT_CONFIG.sourceBaseUrl;
   document.getElementById('sourceProductId').value = DEFAULT_CONFIG.sourceProductId;
-  document.getElementById('targetProductId').value = DEFAULT_CONFIG.targetProductId;
   document.getElementById('docApiUrl').value = DEFAULT_CONFIG.docApiUrl;
   showStatus('已重置为默认值', 'success');
 }

@@ -156,7 +156,7 @@ chrome.commands.onCommand.addListener(async (command) => {
       
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
-        files: ['scripts/copy-english-doc.js']
+        files: ['scripts/copy-doc-markdown.js']
       });
       
       console.log('Copy English doc script injected and executed');
