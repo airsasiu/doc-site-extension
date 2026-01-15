@@ -232,6 +232,15 @@ class BatchAddComponent extends BaseComponent {
         border-bottom-color: #1890ff;
       }      
       
+      /* 选项卡内容样式 */
+      .tab-content {
+        display: none;
+      }
+      
+      .tab-content.active {
+        display: block;
+      }
+      
       /* 警告文本样式 */
       .warning-text {
         color: #f44336;
@@ -657,12 +666,35 @@ class BatchAddComponent extends BaseComponent {
     this.renderParentPages(filteredPages);
   }
 
+  // 控制确定按钮的禁用状态
+  setConfirmButtonDisabled(disabled) {
+    const confirmBtn = this.modal.querySelector('.confirm-btn');
+    if (confirmBtn) {
+      confirmBtn.disabled = disabled;
+      if (disabled) {
+        confirmBtn.style.opacity = '0.6';
+        confirmBtn.style.cursor = 'not-allowed';
+      } else {
+        confirmBtn.style.opacity = '1';
+        confirmBtn.style.cursor = 'pointer';
+      }
+    }
+  }
+
   // 主操作处理方法，根据当前选项卡处理添加或删除操作
   async handleAction() {
-    if (this.currentTab === 'add') {
-      await this.handleBatchAdd();
-    } else if (this.currentTab === 'delete') {
-      await this.handleBatchDelete();
+    // 禁用确定按钮，防止误触
+    this.setConfirmButtonDisabled(true);
+    
+    try {
+      if (this.currentTab === 'add') {
+        await this.handleBatchAdd();
+      } else if (this.currentTab === 'delete') {
+        await this.handleBatchDelete();
+      }
+    } finally {
+      // 无论操作成功还是失败，都启用确定按钮
+      this.setConfirmButtonDisabled(false);
     }
   }
 
