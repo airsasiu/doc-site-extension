@@ -16,24 +16,27 @@ body {
   overflow: hidden;
 }
 
-/* 主要Tab样式 */
+/* 主要Tab样式 - 一级菜单 */
 .main-tab-header {
   display: flex;
   background-color: #fafafa;
   border-bottom: 1px solid #e0e0e0;
+  padding: 0 16px;
 }
 
 .main-tab-btn {
   flex: 1;
-  padding: 12px;
+  padding: 12px 20px;
   border: none;
   background: transparent;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: #666;
   transition: all 0.3s ease;
   border-bottom: 2px solid transparent;
+  margin: 4px 0;
+  border-radius: 6px 6px 0 0;
 }
 
 .main-tab-btn:hover {
@@ -460,8 +463,9 @@ body {
   border-bottom: 1px solid #e0e0e0;
   font-size: 12px;
   color: #666;
-  display: block;
+  display: none;
   transition: all 0.3s ease;
+  min-height: 40px;
 }
 
 /* 批量操作区域样式 */
@@ -474,36 +478,42 @@ body {
   overflow: hidden;
 }
 
-/* 批量操作选项卡样式 */
+/* 批量操作选项卡样式 - 二级菜单 */
 .batch-tabs {
   display: flex;
   background-color: #ffffff;
-  border-bottom: 2px solid #f0f0f0;
-  margin: 0;
+  border-bottom: 1px solid #e0e0e0;
+  margin: 0 16px;
+  padding: 4px;
+  border-radius: 6px;
+  background-color: #fafafa;
 }
 
 .batch-tab-btn {
   flex: 1;
-  padding: 12px 16px;
+  padding: 8px 16px;
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: #666;
   transition: all 0.2s ease;
-  border-bottom: 2px solid transparent;
+  border-radius: 4px;
+  margin: 0;
+  border-bottom: none;
 }
 
 .batch-tab-btn:hover {
   color: #1890ff;
-  background-color: rgba(24, 144, 255, 0.05);
+  background-color: rgba(24, 144, 255, 0.1);
 }
 
 .batch-tab-btn.active {
-  color: #1890ff;
-  border-bottom-color: #1890ff;
-  background-color: rgba(24, 144, 255, 0.05);
+  color: #ffffff;
+  background-color: #1890ff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom: none;
 }
 
 /* 批量操作内容样式 */
@@ -709,13 +719,14 @@ body {
 
 /* 批量操作进度条样式 */
 .batch-progress-container {
-  padding: 12px 16px;
+  padding: 10px 16px;
   background: #fafafa;
   border-top: 1px solid #e0e0e0;
-  font-size: 13px;
+  font-size: 12px;
   color: #666;
-  display: block;
+  display: none;
   transition: all 0.3s ease;
+  min-height: 40px;
 }
 
 /* 结果显示区域样式 */

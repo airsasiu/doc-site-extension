@@ -4,6 +4,7 @@ import DocsAPI from '../services/api.js';
 class BatchAddComponent extends BaseComponent {
   constructor(progressBar) {
     super(progressBar);
+    this.currentTab = 'add'; // 设置默认选项卡为添加页面
     this.initContent();
   }
 
@@ -66,6 +67,7 @@ class BatchAddComponent extends BaseComponent {
         <div class="progress-bar-container">
           <div class="progress-bar"></div>
         </div>
+        <div class="progress-details"></div>
       </div>
       
       <!-- 操作按钮 -->
@@ -89,8 +91,23 @@ class BatchAddComponent extends BaseComponent {
     // 保存引用
     this.container = batchOperationsContent;
     
+    // 重新初始化进度条（此时元素已存在）
+    this.progressBar.reInit('#page-operations-tab .batch-progress-container');
+    
     // 绑定事件
     this.bindEvents();
+    
+    // 自动加载父页面和所有页面（自动拉取toc）
+    setTimeout(async () => {
+      try {
+        await Promise.all([
+          this.loadParentPages(),
+          this.loadAllPages()
+        ]);
+      } catch (error) {
+        console.error('自动加载toc失败:', error);
+      }
+    }, 500); // 延迟500ms执行，确保DOM已完全渲染
   }
 
   bindEvents() {
@@ -578,6 +595,14 @@ class BatchAddComponent extends BaseComponent {
     
     // 显示结果
     this.showResult(resultHtml, successCount === totalCount ? 'success' : 'error');
+    
+    // 如果所有操作都成功，并且是添加或删除操作，刷新页面
+    if (successCount === totalCount) {
+      setTimeout(async () => {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        chrome.tabs.reload(tabs[0].id);
+      }, 1000); // 延迟1秒刷新，让用户有时间看到结果
+    }
   }
 
   // 辅助方法：获取当前标签页 URL

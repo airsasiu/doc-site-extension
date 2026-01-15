@@ -6,10 +6,14 @@ import URLUtils from './services/urlUtils.js';
 import DocsAPI from './services/api.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const progressBar = new ProgressBar('.search-progress-container');
-  const searchComponent = new SearchComponent(progressBar);
-  const checkComponent = new CheckComponent(progressBar);
-  const batchAddComponent = new BatchAddComponent(progressBar);
+  // 为每个tab创建独立的进度条
+  const searchProgressBar = new ProgressBar('#search-tab .search-progress-container');
+  const pageOperationsProgressBar = new ProgressBar('#page-operations-tab .batch-progress-container');
+  
+  // 使用对应的进度条初始化组件
+  const searchComponent = new SearchComponent(searchProgressBar);
+  const checkComponent = new CheckComponent(searchProgressBar);
+  const batchAddComponent = new BatchAddComponent(pageOperationsProgressBar);
   
   // 主要Tab切换功能
   const mainTabs = document.querySelectorAll('.main-tab-btn');

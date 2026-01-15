@@ -37,7 +37,14 @@ class ProgressBar {
     this.container.appendChild(this.statusDetails);
   }
 
+  reInit(container) {
+    this.container = document.querySelector(container);
+    this.initContainer();
+  }
+
   start(total) {
+    if (!this.container) return;
+    
     this.startTime = Date.now();
     this.lastUpdateTime = Date.now();
     this.lastProcessedCount = 0;
