@@ -300,8 +300,12 @@ async function processLinks(markdown, linkMatches, progressCallback) {
     // 2. 如果不是 docs.grapecity.com.cn 链接，或者处理失败，尝试搜索链接
     if (!newLinkMarkdown) {
       try {
-        const urlObj = new URL(url);
-        const hash = urlObj.hash; // 提取锚点部分
+        let hash = '';
+        // 只有当url存在时才尝试解析
+        if (url) {
+          const urlObj = new URL(url);
+          hash = urlObj.hash; // 提取锚点部分
+        }
         
         const searchResults = await searchDocs(productId, text);
         
