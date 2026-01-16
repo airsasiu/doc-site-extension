@@ -4,7 +4,8 @@
 const DEFAULT_CONFIG = {
   sourceBaseUrl: '',
   sourceProductId: '',
-  docApiUrl: 'https://docs.grapecity.com.cn/documentsite/api'
+  docApiUrl: 'https://docs.grapecity.com.cn/documentsite/api',
+  copyToClipboard: true
 };
 
 // 保存配置
@@ -12,7 +13,8 @@ function saveOptions() {
   const config = {
     sourceBaseUrl: document.getElementById('sourceBaseUrl').value.trim(),
     sourceProductId: document.getElementById('sourceProductId').value.trim(),
-    docApiUrl: document.getElementById('docApiUrl').value.trim()
+    docApiUrl: document.getElementById('docApiUrl').value.trim(),
+    copyToClipboard: document.getElementById('copyToClipboard').checked
   };
 
   chrome.storage.sync.set({ docSiteHelperConfig: config }, () => {
@@ -28,6 +30,7 @@ function loadOptions() {
     document.getElementById('sourceBaseUrl').value = config.sourceBaseUrl;
     document.getElementById('sourceProductId').value = config.sourceProductId;
     document.getElementById('docApiUrl').value = config.docApiUrl;
+    document.getElementById('copyToClipboard').checked = config.copyToClipboard;
   });
 }
 
@@ -36,6 +39,7 @@ function resetOptions() {
   document.getElementById('sourceBaseUrl').value = DEFAULT_CONFIG.sourceBaseUrl;
   document.getElementById('sourceProductId').value = DEFAULT_CONFIG.sourceProductId;
   document.getElementById('docApiUrl').value = DEFAULT_CONFIG.docApiUrl;
+  document.getElementById('copyToClipboard').checked = DEFAULT_CONFIG.copyToClipboard;
   showStatus('已重置为默认值', 'success');
 }
 

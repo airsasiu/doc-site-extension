@@ -110,11 +110,53 @@
       const finalMarkdown = `${content}`;
       console.log('提取的 Markdown 内容长度:', finalMarkdown.length);
       
-      // 13. 复制到剪贴板
-      await window.docSiteUtils.copyToClipboard(finalMarkdown);
+      // 13. 根据配置决定是否复制到剪贴板
+      if (config.copyToClipboard) {
+        await window.docSiteUtils.copyToClipboard(finalMarkdown);
+      }
       
-      // 14. 显示成功通知
-      window.docSiteUtils.showNotification('文档 Markdown 内容已复制到剪贴板', 'success', 5000);
+      // 14. 写入到编辑框（仅使用textarea方案）
+      let writeSuccess = false;
+      try {
+        // 查找编辑框容器
+        const editorContainer = document.querySelector('.toastui-editor.md-mode');
+        if (editorContainer) {
+          // 查找textarea元素
+          let textarea = editorContainer.querySelector('textarea');
+          if (!textarea) {
+            // 如果找不到textarea，尝试查找可能的隐藏textarea或其他输入元素
+            textarea = editorContainer.querySelector('textarea, input[type="text"]');
+          }
+          
+          if (textarea) {
+            // 设置textarea的值
+            textarea.value = finalMarkdown;
+            
+            // 触发input事件，让编辑器检测到内容变化
+            textarea.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            
+            writeSuccess = true;
+            console.log('Markdown 内容已成功写入textarea');
+          }
+        }
+      } catch (error) {
+        console.error('写入编辑框失败:', error);
+      }
+      
+      // 15. 显示成功通知
+      if (writeSuccess) {
+        if (config.copyToClipboard) {
+          window.docSiteUtils.showNotification('文档 Markdown 内容已复制到剪贴板并写入编辑框', 'success', 5000);
+        } else {
+          window.docSiteUtils.showNotification('文档 Markdown 内容已成功写入编辑框', 'success', 5000);
+        }
+      } else {
+        if (config.copyToClipboard) {
+          window.docSiteUtils.showNotification('文档 Markdown 内容已复制到剪贴板', 'success', 5000);
+        } else {
+          window.docSiteUtils.showNotification('文档 Markdown 内容获取成功', 'success', 5000);
+        }
+      }
       
     } catch (error) {
       console.error('复制文档时出错:', error);
