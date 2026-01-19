@@ -142,18 +142,33 @@ async function processImages(markdown, imageMatches, progressCallback) {
   return result;
 }
 
-// 处理 docs.grapecity.com.cn 开头的链接
+// 处理 docs.grapecity.com.cn 开头的链接或相对地址链接
 async function processGrapeCityLink(url, text, productId, versionInfo) {
-  // 检查是否是 docs.grapecity.com.cn 开头的链接
-  if (!url.startsWith('https://docs.grapecity.com.cn/')) {
-    return null;
-  }
-  
   try {
-    // 提取路径和锚点
-    const urlObj = new URL(url);
-    const originalPath = urlObj.pathname;
-    const hash = urlObj.hash; // 提取锚点部分
+    let originalPath = '';
+    let hash = '';
+    let isExternalUrl = false;
+    
+    // 判断是外部 URL 还是相对地址
+    if (url.startsWith('https://docs.grapecity.com.cn/')) {
+      // 外部 URL 处理
+      isExternalUrl = true;
+      const urlObj = new URL(url);
+      originalPath = urlObj.pathname;
+      hash = urlObj.hash; // 提取锚点部分
+    } else if (url.startsWith('/')) {
+      // 相对地址处理（以 / 开头）
+      originalPath = url;
+      // 提取锚点部分
+      const hashIndex = url.indexOf('#');
+      if (hashIndex !== -1) {
+        hash = url.substring(hashIndex);
+        originalPath = url.substring(0, hashIndex);
+      }
+    } else {
+      // 非目标链接，直接返回
+      return null;
+    }
     
     if (!originalPath) {
       return null;
@@ -168,20 +183,65 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
       // API 文档处理
       const apiRoot = versionInfo.apiRootPath;
       if (originalPath.startsWith(apiRoot)) {
-        // 提取相对于 apiRootPath 的路径
+        // 绝对路径且匹配 apiRootPath，提取相对于 apiRootPath 的路径
         documentPath = originalPath.substring(apiRoot.length) || '/';
+      } else if (originalPath.startsWith('/')) {
+        // 相对地址，检查是否与 apiRootPath 的结构匹配
+        // 提取 apiRootPath 中的基础路径部分（不包含版本号）
+        const apiRootParts = apiRoot.split('/').filter(Boolean);
+        const originalParts = originalPath.split('/').filter(Boolean);
+        
+        // 如果相对地址的结构与 apiRootPath 匹配（例如都包含 /api/）
+        if (apiRootParts.includes('api') && originalParts.includes('api')) {
+          // 提取 api 之后的路径作为 documentPath
+          const apiIndexOriginal = originalParts.indexOf('api');
+          if (apiIndexOriginal !== -1 && apiIndexOriginal < originalParts.length - 1) {
+            documentPath = '/' + originalParts.slice(apiIndexOriginal + 1).join('/');
+          } else {
+            documentPath = originalPath;
+          }
+        } else {
+          // 结构不匹配，直接使用原始路径
+          documentPath = originalPath;
+        }
       } else {
-        // 如果 URL 路径与 apiRootPath 不匹配，尝试直接使用原始路径
+        // 其他情况，直接使用原始路径
         documentPath = originalPath;
       }
     } else if (!isApiDoc && versionInfo.rootPath) {
       // 普通文档处理
       const docRoot = versionInfo.rootPath;
       if (originalPath.startsWith(docRoot)) {
-        // 提取相对于 rootPath 的路径
+        // 绝对路径且匹配 rootPath，提取相对于 rootPath 的路径
         documentPath = originalPath.substring(docRoot.length) || '/';
+      } else if (originalPath.startsWith('/')) {
+        // 相对地址，检查是否与 rootPath 的结构匹配
+        const rootParts = docRoot.split('/').filter(Boolean);
+        const originalParts = originalPath.split('/').filter(Boolean);
+        
+        // 提取 rootPath 中的基础路径部分（不包含版本号）
+        // 寻找第一个可能的版本号位置
+        let basePathParts = [];
+        for (const part of rootParts) {
+          if (/^(v?\d+(?:\.\d+)*|latest)$/i.test(part)) {
+            break; // 遇到版本号，停止提取
+          }
+          basePathParts.push(part);
+        }
+        
+        // 检查相对地址是否包含基础路径
+        const hasMatchingBase = basePathParts.length > 0 && 
+                               originalParts.slice(0, basePathParts.length).join('/') === basePathParts.join('/');
+        
+        if (hasMatchingBase) {
+          // 提取基础路径之后的路径作为 documentPath
+          documentPath = '/' + originalParts.slice(basePathParts.length).join('/');
+        } else {
+          // 没有匹配的基础路径，直接使用原始路径
+          documentPath = originalPath;
+        }
       } else {
-        // 如果 URL 路径与 rootPath 不匹配，尝试直接使用原始路径
+        // 其他情况，直接使用原始路径
         documentPath = originalPath;
       }
     } else {
@@ -208,7 +268,7 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
     
     return null;
   } catch (error) {
-    console.error(`处理 docs.grapecity.com.cn 链接失败: ${url}`, error);
+    console.error(`处理链接失败: ${url}`, error);
     return null;
   }
 }
