@@ -166,7 +166,7 @@ async function processGrapeCityLink(url, text, productId, actualVersion) {
     if (pathParts.length >= 2) {
       const productName = pathParts[0];
       let processedParts = [...pathParts];
-      const versionWithPrefix = `v${actualVersion}`;
+      const versionWithPrefix = `${actualVersion}`;
       
       // 检查并移除已存在的版本号（无论位置）
       let hasExistingVersion = false;
@@ -251,8 +251,7 @@ async function getVersionFromApi(productId) {
     
     const data = await response.json();
     if (data && data.name) {
-      // 返回版本号，移除可能的前缀V
-      return data.name.replace(/^V/i, '');
+      return data.name
     }
     
     return null;
