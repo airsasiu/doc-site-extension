@@ -143,78 +143,50 @@ async function processImages(markdown, imageMatches, progressCallback) {
 }
 
 // 处理 docs.grapecity.com.cn 开头的链接
-async function processGrapeCityLink(url, text, productId, actualVersion) {
+async function processGrapeCityLink(url, text, productId, versionInfo) {
   // 检查是否是 docs.grapecity.com.cn 开头的链接
   if (!url.startsWith('https://docs.grapecity.com.cn/')) {
     return null;
   }
   
   try {
-    // 提取 documentPath 和锚点
+    // 提取路径和锚点
     const urlObj = new URL(url);
-    let documentPath = urlObj.pathname;
+    const originalPath = urlObj.pathname;
     const hash = urlObj.hash; // 提取锚点部分
     
-    if (!documentPath) {
+    if (!originalPath) {
       return null;
     }
     
-    // 检查路径结构，补全版本号
-    // 期望格式: /product/help/api/vversion/...
-    const pathParts = documentPath.split('/').filter(Boolean);
+    let documentPath = '';
     
-    if (pathParts.length >= 2) {
-      const productName = pathParts[0];
-      let processedParts = [...pathParts];
-      const versionWithPrefix = `${actualVersion}`;
-      
-      // 检查并移除已存在的版本号（无论位置）
-      let hasExistingVersion = false;
-      let versionIndex = -1;
-      for (let i = 1; i < processedParts.length; i++) {
-        // 修改正则表达式，匹配包含点号的版本号，如 v18.2
-        if (/^(v?\d+(?:\.\d+)*|latest)$/i.test(processedParts[i])) {
-          hasExistingVersion = true;
-          versionIndex = i;
-          break;
-        }
-      }
-      
-      // 如果有现有的版本号，先移除它
-      if (hasExistingVersion) {
-        processedParts.splice(versionIndex, 1);
-      }
-      
-      // 构建正确的路径结构
-      let helpIndex = processedParts.indexOf('help');
-      let apiIndex = processedParts.indexOf('api');
-      
-      if (helpIndex !== -1 && apiIndex !== -1) {
-        // 情况1: 包含help和api，如 /product/help/api/...
-        // 确保api在help后面
-        if (apiIndex > helpIndex) {
-          // 在api后面插入版本号
-          processedParts.splice(apiIndex + 1, 0, versionWithPrefix);
-        } else {
-          // 在help后面插入版本号
-          processedParts.splice(helpIndex + 1, 0, versionWithPrefix);
-        }
-      } else if (helpIndex !== -1) {
-        // 情况2: 只包含help，如 /product/help/...
-        // 在help后面插入版本号
-        processedParts.splice(helpIndex + 1, 0, versionWithPrefix);
-      } else if (apiIndex !== -1) {
-        // 情况3: 只包含api，如 /product/api/...
-        // 在api后面插入版本号
-        processedParts.splice(apiIndex + 1, 0, versionWithPrefix);
+    // 根据 URL 判断是普通文档还是 API 文档
+    const isApiDoc = originalPath.includes('/api/');
+    
+    if (isApiDoc && versionInfo.apiRootPath) {
+      // API 文档处理
+      const apiRoot = versionInfo.apiRootPath;
+      if (originalPath.startsWith(apiRoot)) {
+        // 提取相对于 apiRootPath 的路径
+        documentPath = originalPath.substring(apiRoot.length) || '/';
       } else {
-        // 情况4: 其他情况，如 /product/something/...
-        // 在productName后面插入版本号
-        processedParts.splice(1, 0, versionWithPrefix);
+        // 如果 URL 路径与 apiRootPath 不匹配，尝试直接使用原始路径
+        documentPath = originalPath;
       }
-      
-      // 重新构建documentPath
-      documentPath = `/${processedParts.join('/')}`;
+    } else if (!isApiDoc && versionInfo.rootPath) {
+      // 普通文档处理
+      const docRoot = versionInfo.rootPath;
+      if (originalPath.startsWith(docRoot)) {
+        // 提取相对于 rootPath 的路径
+        documentPath = originalPath.substring(docRoot.length) || '/';
+      } else {
+        // 如果 URL 路径与 rootPath 不匹配，尝试直接使用原始路径
+        documentPath = originalPath;
+      }
+    } else {
+      // 无法确定文档类型或缺少根路径信息，使用原始路径
+      documentPath = originalPath;
     }
     
     // 发送请求获取对应的 tocItem
@@ -241,22 +213,22 @@ async function processGrapeCityLink(url, text, productId, actualVersion) {
   }
 }
 
-// 从API获取版本号
+// 从API获取版本信息
 async function getVersionFromApi(productId) {
   try {
     const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productId}?includeDetail=false`);
     if (!response.ok) {
-      throw new Error('获取版本号失败');
+      throw new Error('获取版本信息失败');
     }
     
     const data = await response.json();
     if (data && data.name) {
-      return data.name
+      return data;
     }
     
     return null;
   } catch (error) {
-    console.error('获取版本号时出错:', error);
+    console.error('获取版本信息时出错:', error);
     return null;
   }
 }
@@ -278,10 +250,10 @@ async function processLinks(markdown, linkMatches, progressCallback) {
     return result;
   }
   
-  // 获取实际版本号
-  const actualVersion = await getVersionFromApi(productId);
-  if (!actualVersion) {
-    console.error('无法获取版本号，跳过链接处理');
+  // 获取实际版本信息
+  const versionInfo = await getVersionFromApi(productId);
+  if (!versionInfo) {
+    console.error('无法获取版本信息，跳过链接处理');
     if (progressCallback) progressCallback(0);
     return result;
   }
@@ -293,7 +265,7 @@ async function processLinks(markdown, linkMatches, progressCallback) {
     
     // 1. 首先尝试处理 docs.grapecity.com.cn 开头的链接
     if (url.startsWith('https://docs.grapecity.com.cn/')) {
-      newLinkMarkdown = await processGrapeCityLink(url, text, productId, actualVersion);
+      newLinkMarkdown = await processGrapeCityLink(url, text, productId, versionInfo);
     }
     
     // 2. 如果不是 docs.grapecity.com.cn 链接，或者处理失败，尝试搜索链接
