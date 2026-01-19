@@ -128,6 +128,30 @@
     </div>
   </div>
   
+  <div class="option-group">
+    <h2>链接处理规则配置</h2>
+    <div class="description">配置不同产品的API文档链接处理规则</div>
+    
+    <div class="form-row">
+      <label for="linkRules">链接处理规则 (JSON格式)</label>
+      <textarea id="linkRules" rows="10" placeholder='{
+  "java": {
+    "apiPathPattern": "/document-solutions/.*?/api/online/",
+    "replaceWith": "/"
+  },
+  "js": {
+    "apiPathPattern": "/api/",
+    "replaceWith": "/"
+  },
+  "csharp": {
+    "apiPathPattern": "/api/",
+    "replaceWith": "/"
+  }
+}'></textarea>
+      <div class="description">配置不同产品的API路径匹配规则，使用正则表达式匹配并替换路径</div>
+    </div>
+  </div>
+  
   <div class="form-row">
     <button type="button" id="saveBtn">保存配置</button>
     <button type="button" id="resetBtn">重置为默认值</button>

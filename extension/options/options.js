@@ -5,21 +5,47 @@ const DEFAULT_CONFIG = {
   sourceBaseUrl: '',
   sourceProductId: '',
   docApiUrl: 'https://docs.grapecity.com.cn/documentsite/api',
-  copyToClipboard: true
+  copyToClipboard: true,
+  linkRules: {
+    "java": {
+      "apiPathPattern": "/document-solutions/.*?/api/online/",
+      "replaceWith": "/"
+    },
+    "js": {
+      "apiPathPattern": "/api/",
+      "replaceWith": "/"
+    },
+    "csharp": {
+      "apiPathPattern": "/api/",
+      "replaceWith": "/"
+    }
+  }
 };
 
 // 保存配置
 function saveOptions() {
-  const config = {
-    sourceBaseUrl: document.getElementById('sourceBaseUrl').value.trim(),
-    sourceProductId: document.getElementById('sourceProductId').value.trim(),
-    docApiUrl: document.getElementById('docApiUrl').value.trim(),
-    copyToClipboard: document.getElementById('copyToClipboard').checked
-  };
+  try {
+    const linkRulesText = document.getElementById('linkRules').value.trim();
+    let linkRules = {};
+    
+    if (linkRulesText) {
+      linkRules = JSON.parse(linkRulesText);
+    }
+    
+    const config = {
+      sourceBaseUrl: document.getElementById('sourceBaseUrl').value.trim(),
+      sourceProductId: document.getElementById('sourceProductId').value.trim(),
+      docApiUrl: document.getElementById('docApiUrl').value.trim(),
+      copyToClipboard: document.getElementById('copyToClipboard').checked,
+      linkRules: linkRules
+    };
 
-  chrome.storage.sync.set({ docSiteHelperConfig: config }, () => {
-    showStatus('配置已保存', 'success');
-  });
+    chrome.storage.sync.set({ docSiteHelperConfig: config }, () => {
+      showStatus('配置已保存', 'success');
+    });
+  } catch (error) {
+    showStatus('链接规则格式错误: ' + error.message, 'error');
+  }
 }
 
 // 加载配置
@@ -31,6 +57,7 @@ function loadOptions() {
     document.getElementById('sourceProductId').value = config.sourceProductId;
     document.getElementById('docApiUrl').value = config.docApiUrl;
     document.getElementById('copyToClipboard').checked = config.copyToClipboard;
+    document.getElementById('linkRules').value = JSON.stringify(config.linkRules, null, 2);
   });
 }
 
@@ -40,6 +67,7 @@ function resetOptions() {
   document.getElementById('sourceProductId').value = DEFAULT_CONFIG.sourceProductId;
   document.getElementById('docApiUrl').value = DEFAULT_CONFIG.docApiUrl;
   document.getElementById('copyToClipboard').checked = DEFAULT_CONFIG.copyToClipboard;
+  document.getElementById('linkRules').value = JSON.stringify(DEFAULT_CONFIG.linkRules, null, 2);
   showStatus('已重置为默认值', 'success');
 }
 

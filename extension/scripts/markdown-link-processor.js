@@ -142,6 +142,77 @@ async function processImages(markdown, imageMatches, progressCallback) {
   return result;
 }
 
+// 从Chrome存储加载配置
+async function loadConfig() {
+  return new Promise((resolve) => {
+    // 检查是否在浏览器环境中
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.sync.get(['docSiteHelperConfig'], (result) => {
+        resolve(result.docSiteHelperConfig || {});
+      });
+    } else {
+      // 非浏览器环境，返回默认配置
+      resolve({
+        linkRules: {
+          "java": {
+            "apiPathPattern": "/document-solutions/.*?/api/online/",
+            "replaceWith": "/"
+          },
+          "js": {
+            "apiPathPattern": "/api/",
+            "replaceWith": "/"
+          },
+          "csharp": {
+            "apiPathPattern": "/api/",
+            "replaceWith": "/"
+          }
+        }
+      });
+    }
+  });
+}
+
+// 检测产品类型
+function detectProductType(path, versionInfo) {
+  // 从 versionInfo 中提取产品类型
+  if (versionInfo && versionInfo.apiRootPath) {
+    if (versionInfo.apiRootPath.includes('/java/')) {
+      return 'java';
+    } else if (versionInfo.apiRootPath.includes('/js/') || versionInfo.apiRootPath.includes('/javascript/')) {
+      return 'js';
+    } else if (versionInfo.apiRootPath.includes('/csharp/') || versionInfo.apiRootPath.includes('/dotnet/')) {
+      return 'csharp';
+    }
+  }
+  
+  // 从路径中检测
+  if (path.includes('/java/')) {
+    return 'java';
+  } else if (path.includes('/js/') || path.includes('/javascript/')) {
+    return 'js';
+  } else if (path.includes('/csharp/') || path.includes('/dotnet/')) {
+    return 'csharp';
+  }
+  
+  // 默认返回 java
+  return 'java';
+}
+
+// 应用链接处理规则
+function applyLinkRules(path, productType, linkRules) {
+  if (!linkRules || !linkRules[productType]) {
+    return path;
+  }
+  
+  const rule = linkRules[productType];
+  if (rule.apiPathPattern && rule.replaceWith !== undefined) {
+    const regex = new RegExp(rule.apiPathPattern, 'i');
+    return path.replace(regex, rule.replaceWith);
+  }
+  
+  return path;
+}
+
 // 处理 docs.grapecity.com.cn 开头的链接或相对地址链接
 async function processGrapeCityLink(url, text, productId, versionInfo) {
   try {
@@ -182,28 +253,18 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
     if (isApiDoc && versionInfo.apiRootPath) {
       // API 文档处理
       const apiRoot = versionInfo.apiRootPath;
+      
       if (originalPath.startsWith(apiRoot)) {
         // 绝对路径且匹配 apiRootPath，提取相对于 apiRootPath 的路径
         documentPath = originalPath.substring(apiRoot.length) || '/';
       } else if (originalPath.startsWith('/')) {
-        // 相对地址，检查是否与 apiRootPath 的结构匹配
-        // 提取 apiRootPath 中的基础路径部分（不包含版本号）
-        const apiRootParts = apiRoot.split('/').filter(Boolean);
-        const originalParts = originalPath.split('/').filter(Boolean);
+        // 相对地址，应用链接处理规则
+        const config = await loadConfig();
+        const productType = detectProductType(originalPath, versionInfo);
         
-        // 如果相对地址的结构与 apiRootPath 匹配（例如都包含 /api/）
-        if (apiRootParts.includes('api') && originalParts.includes('api')) {
-          // 提取 api 之后的路径作为 documentPath
-          const apiIndexOriginal = originalParts.indexOf('api');
-          if (apiIndexOriginal !== -1 && apiIndexOriginal < originalParts.length - 1) {
-            documentPath = '/' + originalParts.slice(apiIndexOriginal + 1).join('/');
-          } else {
-            documentPath = originalPath;
-          }
-        } else {
-          // 结构不匹配，直接使用原始路径
-          documentPath = originalPath;
-        }
+        // 应用配置的链接处理规则
+        const processedPath = applyLinkRules(originalPath, productType, config.linkRules);
+        documentPath = processedPath;
       } else {
         // 其他情况，直接使用原始路径
         documentPath = originalPath;
@@ -215,38 +276,23 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
         // 绝对路径且匹配 rootPath，提取相对于 rootPath 的路径
         documentPath = originalPath.substring(docRoot.length) || '/';
       } else if (originalPath.startsWith('/')) {
-        // 相对地址，检查是否与 rootPath 的结构匹配
-        const rootParts = docRoot.split('/').filter(Boolean);
-        const originalParts = originalPath.split('/').filter(Boolean);
+        // 相对地址，应用链接处理规则
+        const config = await loadConfig();
+        const productType = detectProductType(originalPath, versionInfo);
         
-        // 提取 rootPath 中的基础路径部分（不包含版本号）
-        // 寻找第一个可能的版本号位置
-        let basePathParts = [];
-        for (const part of rootParts) {
-          if (/^(v?\d+(?:\.\d+)*|latest)$/i.test(part)) {
-            break; // 遇到版本号，停止提取
-          }
-          basePathParts.push(part);
-        }
-        
-        // 检查相对地址是否包含基础路径
-        const hasMatchingBase = basePathParts.length > 0 && 
-                               originalParts.slice(0, basePathParts.length).join('/') === basePathParts.join('/');
-        
-        if (hasMatchingBase) {
-          // 提取基础路径之后的路径作为 documentPath
-          documentPath = '/' + originalParts.slice(basePathParts.length).join('/');
-        } else {
-          // 没有匹配的基础路径，直接使用原始路径
-          documentPath = originalPath;
-        }
+        // 应用配置的链接处理规则
+        const processedPath = applyLinkRules(originalPath, productType, config.linkRules);
+        documentPath = processedPath;
       } else {
         // 其他情况，直接使用原始路径
         documentPath = originalPath;
       }
     } else {
-      // 无法确定文档类型或缺少根路径信息，使用原始路径
-      documentPath = originalPath;
+      // 无法确定文档类型或缺少根路径信息，应用链接处理规则
+      const config = await loadConfig();
+      const productType = detectProductType(originalPath, versionInfo);
+      const processedPath = applyLinkRules(originalPath, productType, config.linkRules);
+      documentPath = processedPath;
     }
     
     // 发送请求获取对应的 tocItem
