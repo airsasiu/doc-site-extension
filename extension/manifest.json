@@ -46,6 +46,13 @@
       },
       "description": "从配置的源地址复制 Markdown 到剪贴板"
     },
+    "clean_link_urls": {
+      "suggested_key": {
+        "default": "Alt+Shift+Y",
+        "mac": "Alt+Shift+Y"
+      },
+      "description": "清理选中文本中的链接URL"
+    },
     "open_help": {
       "description": "打开帮助文档"
     }

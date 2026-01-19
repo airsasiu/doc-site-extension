@@ -20,6 +20,12 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "移除选中文本中的换行标签",
     contexts: ["selection"]
   });
+  
+  chrome.contextMenus.create({
+    id: "clean_link_urls",
+    title: "清理选中文本中的链接URL",
+    contexts: ["selection"]
+  });
 });
 
 // 处理右键菜单点击
@@ -61,6 +67,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       console.log('BR tags removal executed');
     } catch (error) {
       console.error('Error during BR tags removal:', error);
+    }
+  } else if (info.menuItemId === "clean_link_urls") {
+    try {
+      // 先注入工具脚本
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['scripts/utils.js']
+      });
+      
+      // 然后注入并执行 Markdown 链接 URL 清理脚本
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['scripts/markdown-link-cleaner.js']
+      });
+      
+      console.log('Markdown link URL cleaner script injected and executed');
+    } catch (error) {
+      console.error('Error during Markdown link URL cleaning:', error);
     }
   }
 });
@@ -162,6 +186,26 @@ chrome.commands.onCommand.addListener(async (command) => {
       console.log('Copy English doc script injected and executed');
     } catch (error) {
       console.error('Error during copy English doc operation:', error);
+    }
+  } else if (command === "clean_link_urls") {
+    console.log('Clean link URLs command triggered');
+    
+    try {
+      // 先注入工具脚本
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ['scripts/utils.js']
+      });
+      
+      // 然后注入并执行 Markdown 链接 URL 清理脚本
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ['scripts/markdown-link-cleaner.js']
+      });
+      
+      console.log('Markdown link URL cleaner script injected and executed');
+    } catch (error) {
+      console.error('Error during Markdown link URL cleaning:', error);
     }
   } else if (command === "open_help") {
     console.log('Open help command triggered');
