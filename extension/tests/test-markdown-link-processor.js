@@ -237,9 +237,9 @@ async function testMarkdownLinkProcessor() {
       shouldProcess: true
     },
     {
-      name: '相对地址 API 文档链接',
+      name: '用户报告的相对地址 API 链接',
       url: '/document-solutions/java-excel-api/api/online/com/grapecity/documents/excel/IRange.html#copy',
-      text: 'IRange.Copy',
+      text: 'Range.Copy',
       expectedPath: '/online/com/grapecity/documents/excel/IRange.html',
       shouldProcess: true
     },

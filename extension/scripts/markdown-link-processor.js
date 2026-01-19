@@ -323,19 +323,25 @@ async function processLinks(markdown, linkMatches, progressCallback) {
     const {fullMatch, text, url} = linkMatches[i];
     let newLinkMarkdown = null;
     
-    // 1. 首先尝试处理 docs.grapecity.com.cn 开头的链接
-    if (url.startsWith('https://docs.grapecity.com.cn/')) {
+    // 1. 首先尝试处理 docs.grapecity.com.cn 开头的链接或相对地址
+    if (url.startsWith('https://docs.grapecity.com.cn/') || url.startsWith('/')) {
       newLinkMarkdown = await processGrapeCityLink(url, text, productId, versionInfo);
     }
     
-    // 2. 如果不是 docs.grapecity.com.cn 链接，或者处理失败，尝试搜索链接
+    // 2. 如果不是目标链接，或者处理失败，尝试搜索链接
     if (!newLinkMarkdown) {
       try {
         let hash = '';
-        // 只有当url存在时才尝试解析
-        if (url) {
+        // 只有当url是绝对地址时才尝试解析
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
           const urlObj = new URL(url);
           hash = urlObj.hash; // 提取锚点部分
+        } else if (url) {
+          // 处理相对地址的锚点
+          const hashIndex = url.indexOf('#');
+          if (hashIndex !== -1) {
+            hash = url.substring(hashIndex);
+          }
         }
         
         const searchResults = await searchDocs(productId, text);
