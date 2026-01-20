@@ -32,66 +32,32 @@ function cleanMarkdownLinkUrls(markdown) {
   const cleanedLines = lines.map(line => {
     let cleanedLine = line;
     
-    // 匹配所有 Markdown 链接（包括图片链接和普通链接）
-      // 匹配模式：
-      // (^|\S?) - 匹配链接前面的内容（开始或可选的非空格字符）
-      // (!?) - 匹配可选的图片标记!
-      // (\[) - 匹配链接开始标记[
-      // (\s*) - 匹配链接文本前面的空格
-      // (.*?) - 匹配链接文本
-      // (\s*) - 匹配链接文本后面的空格
-      // (\]\() - 匹配链接 URL 开始标记](
-      // (.*?) - 匹配链接 URL
-      // (\)) - 匹配链接结束标记)
-      // (\S?|$) - 匹配链接后面的内容（可选的非空格字符或结束）
-      const linkRegex = /(^|\S?)(!?)(\[)(\s+)(.*?)(\s+)(\]\()(.*?)(\))(\S?|$)/g;
-      
-      // 替换所有链接，清理文本前后的空格
-      cleanedLine = cleanedLine.replace(linkRegex, (match, before, imgMark, linkStart, textPreSpace, text, textPostSpace, urlStart, url, linkEnd, after) => {
-        // 清理链接文本前后的空格
-        const trimmedText = text.trim();
-        
-        // 构建新的链接
-        const newLink = `${imgMark}${linkStart}${trimmedText}${urlStart}${linkEnd}`;
-        
-        // 处理链接前面的内容
-        let newBefore = before;
-        if (before && before !== ' ') {
-          newBefore = `${before} `;
-        }
-        
-        // 处理链接后面的内容
-        let newAfter = after;
-        if (after && after !== ' ') {
-          newAfter = ` ${after}`;
-        }
-        
-        return `${newBefore}${newLink}${newAfter}`;
-      });
-      
-      // 处理没有前后空格的链接情况
-      const noSpaceLinkRegex = /(^|\S)(!?)(\[)([^\]]+)(\]\()(.*?)(\))(\S|$)/g;
-      cleanedLine = cleanedLine.replace(noSpaceLinkRegex, (match, before, imgMark, linkStart, text, urlStart, url, linkEnd, after) => {
-        // 构建新的链接
-        const newLink = `${imgMark}${linkStart}${text}${urlStart}${linkEnd}`;
-        
-        // 处理链接前面的内容
-        let newBefore = before;
-        if (before && before !== ' ') {
-          newBefore = `${before} `;
-        }
-        
-        // 处理链接后面的内容
-        let newAfter = after;
-        if (after && after !== ' ') {
-          newAfter = ` ${after}`;
-        }
-        
-        return `${newBefore}${newLink}${newAfter}`;
-      });
+    // 定义一个临时标记，用于替换链接后避免后续处理影响
+    const tempLinkMark = '##TEMP_LINK_MARK##';
+    const tempLinks = [];
     
-    // 移除多余的连续空格
+    // 第一步：替换所有链接，将其转换为临时标记并存储清理后的链接
+    cleanedLine = cleanedLine.replace(/(!?)(\[)([^\]]+)(\]\()([^)]*)(\))/g, (match, imgMark, openBracket, text, urlOpen, url, closeParen) => {
+      // 清理链接文本前后的空格
+      const trimmedText = text.trim();
+      
+      // 构建新的链接，直接生成空 URL
+      const newLink = `${imgMark}[${trimmedText}]()`;
+      tempLinks.push(newLink);
+      return tempLinkMark;
+    });
+    
+    // 第二步：处理链接前后的空格
+    // 确保链接前后与非空格字符之间有适当的空格
+    cleanedLine = cleanedLine.replace(/(\S)(##TEMP_LINK_MARK##)/g, '$1 $2');
+    cleanedLine = cleanedLine.replace(/(##TEMP_LINK_MARK##)(\S)/g, '$1 $2');
+    
+    // 第三步：移除多余的连续空格
     cleanedLine = cleanedLine.replace(/[ \t]+/g, ' ');
+    
+    // 第四步：将临时标记替换为实际链接
+    let linkIndex = 0;
+    cleanedLine = cleanedLine.replace(/##TEMP_LINK_MARK##/g, () => tempLinks[linkIndex++]);
     
     return cleanedLine;
   });

@@ -249,14 +249,20 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
     
     // 根据 URL 判断是普通文档还是 API 文档
     const isApiDoc = originalPath.includes('/api/');
+    isExternalUrl = url.startsWith('https://docs.grapecity.com.cn/');
     
     if (isApiDoc && versionInfo.apiRootPath) {
       // API 文档处理
       const apiRoot = versionInfo.apiRootPath;
       
       if (originalPath.startsWith(apiRoot)) {
-        // 绝对路径且匹配 apiRootPath，提取相对于 apiRootPath 的路径
-        documentPath = originalPath.substring(apiRoot.length) || '/';
+        if (isExternalUrl) {
+          // 对于外部 URL，使用完整路径
+          documentPath = originalPath;
+        } else {
+          // 对于内部路径，提取相对于 apiRootPath 的路径
+          documentPath = originalPath.substring(apiRoot.length) || '/';
+        }
       } else if (originalPath.startsWith('/')) {
         // 相对地址处理
         // 1. 先应用链接处理规则
@@ -278,9 +284,15 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
     } else if (!isApiDoc && versionInfo.rootPath) {
       // 普通文档处理
       const docRoot = versionInfo.rootPath;
+      
       if (originalPath.startsWith(docRoot)) {
-        // 绝对路径且匹配 rootPath，提取相对于 rootPath 的路径
-        documentPath = originalPath.substring(docRoot.length) || '/';
+        if (isExternalUrl) {
+          // 对于外部 URL，使用完整路径
+          documentPath = originalPath;
+        } else {
+          // 对于内部路径，提取相对于 rootPath 的路径
+          documentPath = originalPath.substring(docRoot.length) || '/';
+        }
       } else if (originalPath.startsWith('/')) {
         // 相对地址处理
         // 1. 先应用链接处理规则
