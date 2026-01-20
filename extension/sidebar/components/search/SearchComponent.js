@@ -6,6 +6,7 @@ class SearchComponent extends DocumentSearchComponent {
     super(progressBar);
     this.searchInput = document.querySelector('.search-input');
     this.searchButton = document.querySelector('.search-button');
+    this.multilineCheckbox = document.querySelector('.multiline-checkbox');
   }
 
   async handleSearch() {
@@ -14,11 +15,12 @@ class SearchComponent extends DocumentSearchComponent {
 
     this.setLoadingState(true);
     try {
+      const isMultiline = this.multilineCheckbox.checked;
       const searchConfigs = [{
         id: 'search',
         label: '搜索结果',
-        check: (content) => searchInMarkdown(content, searchText),
-        getContent: (content) => extractContext(content, searchText)
+        check: (content) => searchInMarkdown(content, searchText, isMultiline),
+        getContent: (content) => extractContext(content, searchText, 100, isMultiline)
       }];
 
       await this.performSearch(searchConfigs);

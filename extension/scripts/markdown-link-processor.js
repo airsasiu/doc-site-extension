@@ -258,13 +258,19 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
         // 绝对路径且匹配 apiRootPath，提取相对于 apiRootPath 的路径
         documentPath = originalPath.substring(apiRoot.length) || '/';
       } else if (originalPath.startsWith('/')) {
-        // 相对地址，应用链接处理规则
+        // 相对地址处理
+        // 1. 先应用链接处理规则
         const config = await loadConfig();
         const productType = detectProductType(originalPath, versionInfo);
+        let processedPath = applyLinkRules(originalPath, productType, config.linkRules);
         
-        // 应用配置的链接处理规则
-        const processedPath = applyLinkRules(originalPath, productType, config.linkRules);
-        documentPath = processedPath;
+        // 2. 移除 /api/ 前缀
+        if (processedPath.startsWith('/api/')) {
+          processedPath = processedPath.replace(/^\/api\//, '/');
+        }
+        
+        // 3. 使用 apiRootPath 拼接完整路径
+        documentPath = apiRoot + processedPath.replace(/^\//, '');
       } else {
         // 其他情况，直接使用原始路径
         documentPath = originalPath;
@@ -276,22 +282,37 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
         // 绝对路径且匹配 rootPath，提取相对于 rootPath 的路径
         documentPath = originalPath.substring(docRoot.length) || '/';
       } else if (originalPath.startsWith('/')) {
-        // 相对地址，应用链接处理规则
+        // 相对地址处理
+        // 1. 先应用链接处理规则
         const config = await loadConfig();
         const productType = detectProductType(originalPath, versionInfo);
+        let processedPath = applyLinkRules(originalPath, productType, config.linkRules);
         
-        // 应用配置的链接处理规则
-        const processedPath = applyLinkRules(originalPath, productType, config.linkRules);
-        documentPath = processedPath;
+        // 2. 移除 /docs/ 前缀
+        if (processedPath.startsWith('/docs/')) {
+          processedPath = processedPath.replace(/^\/docs\//, '/');
+        }
+        
+        // 3. 使用 rootPath 拼接完整路径
+        documentPath = docRoot + processedPath.replace(/^\//, '');
       } else {
         // 其他情况，直接使用原始路径
         documentPath = originalPath;
       }
     } else {
-      // 无法确定文档类型或缺少根路径信息，应用链接处理规则
+      // 无法确定文档类型或缺少根路径信息
+      // 1. 先应用链接处理规则
       const config = await loadConfig();
       const productType = detectProductType(originalPath, versionInfo);
-      const processedPath = applyLinkRules(originalPath, productType, config.linkRules);
+      let processedPath = applyLinkRules(originalPath, productType, config.linkRules);
+      
+      // 2. 移除不必要的前缀
+      if (processedPath.startsWith('/api/')) {
+        processedPath = processedPath.replace(/^\/api\//, '/');
+      } else if (processedPath.startsWith('/docs/')) {
+        processedPath = processedPath.replace(/^\/docs\//, '/');
+      }
+      
       documentPath = processedPath;
     }
     

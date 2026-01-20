@@ -23,7 +23,16 @@
         </div>
       </div>
       <div class="search-section">
-        <input type="text" class="search-input" placeholder="搜索文档内容...">
+        <div class="search-input-container">
+          <textarea class="search-input" placeholder="搜索文档内容..."></textarea>
+          <div class="search-options">
+            <label class="multiline-option">
+              <input type="checkbox" class="multiline-checkbox">
+              <span>多行匹配</span>
+            </label>
+            <div class="help-icon" title="勾选时，搜索内容将按换行分割为多个匹配项；不勾选时，所有内容作为一个匹配项">?</div>
+          </div>
+        </div>
         <div class="search-actions">
           <button class="search-button">搜索</button>
           <button class="routine-check-button">常规检查</button>

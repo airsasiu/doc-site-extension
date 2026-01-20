@@ -114,6 +114,10 @@ body {
   color: white;
 }
 
+.search-input-container {
+  margin-bottom: 8px;
+}
+
 .search-input {
   width: 100%;
   padding: 10px;
@@ -123,6 +127,50 @@ body {
   transition: all 0.3s ease;
   background-color: white;
   box-sizing: border-box;
+  resize: vertical;
+  min-height: 80px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.search-options {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 14px;
+  color: #666;
+}
+
+.multiline-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.multiline-checkbox {
+  cursor: pointer;
+  accent-color: #1890ff;
+}
+
+.help-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #f0f0f0;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: help;
+  transition: all 0.3s ease;
+}
+
+.help-icon:hover {
+  background-color: #e0e0e0;
+  color: #333;
 }
 
 .search-input:focus {
