@@ -37,15 +37,25 @@ function cleanMarkdownLinkUrls(markdown) {
     const tempLinks = [];
     
     // 第一步：替换所有链接，将其转换为临时标记并存储清理后的链接
-    cleanedLine = cleanedLine.replace(/(!?)(\[)([^\]]+)(\]\()([^)]*)(\))/g, (match, imgMark, openBracket, text, urlOpen, url, closeParen) => {
-      // 清理链接文本前后的空格
-      const trimmedText = text.trim();
-      
-      // 构建新的链接，直接生成空 URL
-      const newLink = `${imgMark}[${trimmedText}]()`;
-      tempLinks.push(newLink);
-      return tempLinkMark;
-    });
+      cleanedLine = cleanedLine.replace(/(!?)(\[)([^\]]+)(\]\()([^)]*)(\))/g, (match, imgMark, openBracket, text, urlOpen, url, closeParen) => {
+        // 清理链接文本前后的空格
+        let processedText = text.trim();
+        
+        // 移除链接文本中的括号
+        processedText = processedText.replace(/[()]/g, '');
+        
+        // 移除链接文本中的关键词（忽略大小写）
+        processedText = processedText.replace(/\s+(method|interface|class|property)\b/gi, '');
+
+        
+        // 再次清理可能产生的多余空格
+        processedText = processedText.trim();
+        
+        // 构建新的链接，直接生成空 URL
+        const newLink = `${imgMark}[${processedText}]()`;
+        tempLinks.push(newLink);
+        return tempLinkMark;
+      });
     
     // 第二步：处理链接前后的空格
     // 确保链接前后与非空格字符之间有适当的空格
