@@ -221,7 +221,7 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
     let isExternalUrl = false;
     
     // 判断是外部 URL 还是相对地址
-    if (url.startsWith('https://docs.grapecity.com.cn/')) {
+    if (isTargetDomain(url)) {
       // 外部 URL 处理
       isExternalUrl = true;
       const urlObj = new URL(url);
@@ -249,38 +249,35 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
     
     // 根据 URL 判断是普通文档还是 API 文档
     const isApiDoc = originalPath.includes('/api/');
-    isExternalUrl = url.startsWith('https://docs.grapecity.com.cn/');
+    isExternalUrl = isTargetDomain(url);
     
     if (isApiDoc && versionInfo.apiRootPath) {
       // API 文档处理
       const apiRoot = versionInfo.apiRootPath;
       
-      if (originalPath.startsWith(apiRoot)) {
-        if (isExternalUrl) {
-          // 对于外部 URL，使用完整路径
-          documentPath = originalPath;
-        } else {
-          // 对于内部路径，提取相对于 apiRootPath 的路径
-          documentPath = originalPath.substring(apiRoot.length) || '/';
-        }
-      } else if (originalPath.startsWith('/')) {
-        // 相对地址处理
-        // 1. 先应用链接处理规则
-        const config = await loadConfig();
-        const productType = detectProductType(originalPath, versionInfo);
-        let processedPath = applyLinkRules(originalPath, productType, config.linkRules);
-        
-        // 2. 移除 /api/ 前缀
-        if (processedPath.startsWith('/api/')) {
-          processedPath = processedPath.replace(/^\/api\//, '/');
-        }
-        
-        // 3. 使用 apiRootPath 拼接完整路径
-        documentPath = apiRoot + processedPath.replace(/^\//, '');
-      } else {
-        // 其他情况，直接使用原始路径
-        documentPath = originalPath;
+      // 处理路径，确保生成正确的 documentPath
+      let processedPath = originalPath;
+      
+      // 1. 先应用链接处理规则
+      const config = await loadConfig();
+      const productType = detectProductType(processedPath, versionInfo);
+      processedPath = applyLinkRules(processedPath, productType, config.linkRules);
+      
+      // 2. 移除 /api/ 前缀（如果存在）
+      if (processedPath.startsWith('/api/')) {
+        processedPath = processedPath.replace(/^\/api\//, '/');
       }
+      
+      // 3. 确保路径格式正确，避免重复的路径部分
+      // 提取主要路径部分，例如从 /spreadjs/help/api/classes/... 中提取 /classes/...
+      const apiPathMatch = processedPath.match(/\/(classes|interfaces|enums|modules|namespaces)\//i);
+      if (apiPathMatch && apiPathMatch.index > 0) {
+        // 保留从 classes/ 等开始的部分
+        processedPath = processedPath.substring(apiPathMatch.index);
+      }
+      
+      // 4. 使用 apiRootPath 拼接完整路径
+      documentPath = apiRoot + processedPath.replace(/^\//, '');
     } else if (!isApiDoc && versionInfo.rootPath) {
       // 普通文档处理
       const docRoot = versionInfo.rootPath;
@@ -403,7 +400,7 @@ async function processLinks(markdown, linkMatches, progressCallback) {
     let newLinkMarkdown = null;
     
     // 1. 首先尝试处理 docs.grapecity.com.cn 开头的链接或相对地址
-    if (url.startsWith('https://docs.grapecity.com.cn/') || url.startsWith('/')) {
+    if (isTargetDomain(url) || url.startsWith('/')) {
       newLinkMarkdown = await processGrapeCityLink(url, text, productId, versionInfo);
     }
     
@@ -463,6 +460,12 @@ function isImageAlreadyProcessed(url) {
 function isLinkAlreadyProcessed(url) {
   return url.startsWith('gcdocsite__documentlink?toc-item-id') ||
          isImageAlreadyProcessed(url);
+}
+
+// 检查 URL 是否为目标域名（docs.grapecity.com.cn 或 demo.grapecity.com.cn）
+function isTargetDomain(url) {
+  return url.startsWith('https://docs.grapecity.com.cn/') || 
+         url.startsWith('https://demo.grapecity.com.cn/');
 }
 
 // 从 URL 获取产品 ID
