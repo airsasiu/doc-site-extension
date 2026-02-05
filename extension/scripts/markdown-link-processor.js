@@ -1,3 +1,8 @@
+// 加载共享 URL 工具函数
+var script = document.createElement('script');
+script.src = chrome.runtime.getURL('scripts/shared-url-utils.js');
+document.head.appendChild(script);
+
 // 处理 Markdown 中的图片和链接
 (function() {
   console.log('Markdown link processor script loaded and executing');
@@ -468,12 +473,6 @@ function isTargetDomain(url) {
          url.startsWith('https://demo.grapecity.com.cn/');
 }
 
-// 从 URL 获取产品 ID
-function getProductIdFromUrl() {
-  const url = window.location.href;
-  const match = url.match(/ArticleEdit\/([^?.]+)/);
-    return match ? match[1] : null;
-}
 
 // 搜索文档
 async function searchDocs(productId, keyword) {
@@ -637,14 +636,12 @@ function sanitizeFilename(filename) {
 async function getRootId() {
   try {
     // 从URL中获取产品ID
-    const url = window.location.href;
-    const match = url.match(/ArticleEdit\/([^?\/]+)/);
-    if (!match || !match[1]) {
+    // 使用共享工具函数
+    const productId = getProductIdFromCurrentRootUrl();
+    if (!productId) {
       console.warn('无法从URL获取产品ID');
       return null;
     }
-    
-    const productId = match[1];
     console.log('获取到产品ID:', productId);
     
     // 请求API获取TOC信息

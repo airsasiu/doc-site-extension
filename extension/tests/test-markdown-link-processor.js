@@ -77,8 +77,9 @@ async function testMarkdownLinkProcessor() {
   // 从实际文件中复制函数逻辑（简化版本，只包含核心测试函数）
   function getProductIdFromUrl() {
     const url = window.location.href;
-    const match = url.match(/ArticleEdit\/([^?.]+)/);
-    return match ? match[1] : null;
+    // 支持多种编辑页面类型：ArticleEdit 和 DemoEdit
+    const match = url.match(/(ArticleEdit|DemoEdit)\/([^?.]+)/);
+    return match ? match[2] : null;
   }
 
   // 从API获取版本信息（简化模拟版）

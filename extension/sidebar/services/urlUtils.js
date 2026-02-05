@@ -10,8 +10,9 @@ class URLUtils {
       return null;
     }
     
-    const match = url.match(/ArticleEdit\/([^?.]+)/);
-    return match ? match[1] : null;
+    // 支持多种编辑页面类型：ArticleEdit 和 DemoEdit
+    const match = url.match(/(ArticleEdit|DemoEdit)\/([^?.]+)/);
+    return match ? match[2] : null;
   }
 
   /**

@@ -1,3 +1,8 @@
+// 加载共享 URL 工具函数
+var script = document.createElement('script');
+script.src = chrome.runtime.getURL('scripts/shared-url-utils.js');
+document.head.appendChild(script);
+
 // 从配置的源地址复制 Markdown 到剪贴板
 (function() {
   console.log('文档 Markdown 复制脚本已加载并执行');
@@ -10,8 +15,7 @@
       console.log('当前 URL:', currentUrl);
       
       // 2. 从 URL 中提取关键信息
-      const productIdMatch = currentUrl.match(/manage\/ArticleEdit\/([^?]+)|ArticleEdit\/([^?]+)/);
-      const currentProductId = productIdMatch[1] || productIdMatch[2];
+      const currentProductId = getProductIDFromURL(currentUrl);
       
       if (!currentProductId) {
         window.docSiteUtils.showNotification('无法从 URL 提取产品 ID', 'error');

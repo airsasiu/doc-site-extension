@@ -614,8 +614,8 @@ class BatchAddComponent extends BaseComponent {
 
   // 辅助方法：从 URL 中提取产品 ID
   getProductIDFromURL(url) {
-    const match = url.match(/ArticleEdit\/([^?.]+)/);
-    return match ? match[1] : null;
+    // 使用 URLUtils 类的方法
+    return URLUtils.getProductIDFromURL(url);
   }
 }
 
