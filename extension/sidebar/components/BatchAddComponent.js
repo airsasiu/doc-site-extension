@@ -1,5 +1,6 @@
 import BaseComponent from './base/BaseComponent.js';
 import DocsAPI from '../services/api.js';
+import URLUtils from '../services/urlUtils.js';
 
 class BatchAddComponent extends BaseComponent {
   constructor(progressBar) {
