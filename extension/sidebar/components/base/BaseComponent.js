@@ -25,6 +25,7 @@ class BaseComponent {
       
       const currentUrl = await URLUtils.getCurrentTabUrl();
       const productID = URLUtils.getProductIDFromURL(currentUrl);
+      const pageType = URLUtils.getPageTypeFromURL(currentUrl);
       
       if (!productID) {
         throw new Error('无法获取产品ID，请确保在文档编辑页面使用此扩展');
@@ -34,8 +35,17 @@ class BaseComponent {
       this.showStatus('正在获取文档列表...', 'info');
       const versions = await DocsAPI.getDocVersions(productID);
       
+      // 根据页面类型选择正确的 TOC 对象
+      let tocData;
+      if (pageType === 'DemoEdit' && versions.demoToc && versions.demoToc.tocItemDrafts) {
+        tocData = versions.demoToc.tocItemDrafts;
+      } else {
+        // 默认使用 helpdoc 的 TOC
+        tocData = versions.toc.tocItemDrafts;
+      }
+      
       // 过滤出需要处理的文档项
-      const docItems = versions.toc.tocItemDrafts.filter(item => 
+      const docItems = tocData.filter(item => 
         item.id && item.hasDoc
       );
       

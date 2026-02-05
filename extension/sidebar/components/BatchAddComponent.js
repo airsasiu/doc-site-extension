@@ -265,6 +265,7 @@ class BatchAddComponent extends BaseComponent {
       // 获取当前产品的文档结构
       const currentUrl = await this.getCurrentTabUrl();
       const productID = this.getProductIDFromURL(currentUrl);
+      const pageType = URLUtils.getPageTypeFromURL(currentUrl);
       
       if (!productID) {
         throw new Error('无法获取产品ID');
@@ -278,7 +279,17 @@ class BatchAddComponent extends BaseComponent {
       
       // 保存原始选项数据
       this.originalParentPages = [];
-      this.collectParentPages(versions.toc.tocItemDrafts, 0);
+      
+      // 根据页面类型选择正确的 TOC 对象
+      let tocData;
+      if (pageType === 'DemoEdit' && versions.demoToc && versions.demoToc.tocItemDrafts) {
+        tocData = versions.demoToc.tocItemDrafts;
+      } else {
+        // 默认使用 helpdoc 的 TOC
+        tocData = versions.toc.tocItemDrafts;
+      }
+      
+      this.collectParentPages(tocData, 0);
       
       // 添加所有选项
       this.renderParentPages(this.originalParentPages);
