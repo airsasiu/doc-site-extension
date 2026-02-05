@@ -186,8 +186,8 @@ class BatchAddComponent extends BaseComponent {
   async loadAllPages() {
     try {
       // 获取当前产品的文档结构
-      const currentUrl = await this.getCurrentTabUrl();
-      const productID = this.getProductIDFromURL(currentUrl);
+      const currentUrl = await URLUtils.getCurrentTabUrl();
+      const productID = URLUtils.getProductIDFromURL(currentUrl);
       
       if (!productID) {
         throw new Error('无法获取产品ID');
@@ -263,8 +263,8 @@ class BatchAddComponent extends BaseComponent {
   async loadParentPages() {
     try {
       // 获取当前产品的文档结构
-      const currentUrl = await this.getCurrentTabUrl();
-      const productID = this.getProductIDFromURL(currentUrl);
+      const currentUrl = await URLUtils.getCurrentTabUrl();
+      const productID = URLUtils.getProductIDFromURL(currentUrl);
       const pageType = URLUtils.getPageTypeFromURL(currentUrl);
       
       if (!productID) {
@@ -408,8 +408,8 @@ class BatchAddComponent extends BaseComponent {
       }
       
       // 获取当前产品信息
-      const currentUrl = await this.getCurrentTabUrl();
-      const productID = this.getProductIDFromURL(currentUrl);
+      const currentUrl = await URLUtils.getCurrentTabUrl();
+      const productID = URLUtils.getProductIDFromURL(currentUrl);
       
       if (!productID) {
         this.showResult('无法获取产品ID', 'error');
@@ -615,19 +615,6 @@ class BatchAddComponent extends BaseComponent {
         chrome.tabs.reload(tabs[0].id);
       }, 1000); // 延迟1秒刷新，让用户有时间看到结果
     }
-  }
-
-  // 辅助方法：获取当前标签页 URL
-  async getCurrentTabUrl() {
-    // 从 BaseComponent 或 URLUtils 中获取
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    return tabs[0].url;
-  }
-
-  // 辅助方法：从 URL 中提取产品 ID
-  getProductIDFromURL(url) {
-    // 使用 URLUtils 类的方法
-    return URLUtils.getProductIDFromURL(url);
   }
 }
 
