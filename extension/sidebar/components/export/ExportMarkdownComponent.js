@@ -1,0 +1,334 @@
+import BaseComponent from '../base/BaseComponent.js';
+import DocsAPI from '../../services/api.js';
+
+class ExportMarkdownComponent extends BaseComponent {
+  constructor(progressBar) {
+    super(progressBar);
+    this.initContent();
+    this.loadJSZip();
+  }
+
+  initContent() {
+    // 获取文档操作tab元素
+    const documentOperationsTab = document.getElementById('document-operations-tab');
+    
+    // 创建导出操作内容区域
+    const exportContent = document.createElement('div');
+    exportContent.className = 'export-operations-content';
+    exportContent.innerHTML = `
+      <div class="export-tabs">
+        <button class="export-tab-btn active" data-tab="export-markdown">导出 Markdown</button>
+        <button class="export-tab-btn" data-tab="import-markdown">导入 Markdown</button>
+      </div>
+      
+      <!-- 导出操作内容 -->
+      <div class="export-content">
+        <!-- 导出 Markdown 选项卡 -->
+        <div class="export-tab-content active" id="export-markdown-tab">
+          <div class="form-group">
+            <label>导出设置:</label>
+            <div class="export-options">
+              <div class="export-option">
+                <input type="checkbox" id="export-with-folder" checked>
+                <label for="export-with-folder">按目录结构创建文件夹</label>
+              </div>
+              <div class="export-option">
+                <input type="checkbox" id="export-include-title" checked>
+                <label for="export-include-title">包含页面标题</label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>导出状态:</label>
+            <div class="export-status" id="export-status">
+              <p>准备就绪</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 导入 Markdown 选项卡 -->
+        <div class="export-tab-content" id="import-markdown-tab">
+          <div class="form-group">
+            <label>导入设置:</label>
+            <div class="import-options">
+              <div class="import-option">
+                <input type="file" id="import-file" accept=".zip,.md">
+                <label for="import-file">选择文件 (ZIP或MD)</label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>导入状态:</label>
+            <div class="import-status" id="import-status">
+              <p>准备就绪</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 操作按钮 -->
+      <div class="export-actions">
+        <button class="export-confirm-btn" id="export-action-btn">开始导出</button>
+        <button class="import-confirm-btn" id="import-action-btn">开始导入</button>
+      </div>
+    `;
+    
+    // 添加到文档操作tab中
+    documentOperationsTab.appendChild(exportContent);
+    
+    // 保存引用
+    this.container = exportContent;
+    
+    // 进度条已在sidebar.js中初始化，不需要重新初始化
+    
+    // 绑定选项卡切换事件
+    this.bindTabEvents();
+    
+    // 绑定事件
+    this.bindEvents();
+  }
+
+  loadJSZip() {
+    // 检查是否已经加载了JSZip
+    if (window.JSZip) {
+      return;
+    }
+    
+    // 创建script标签加载本地JSZip库
+    const script = document.createElement('script');
+    script.src = '../lib/jszip.min.js';
+    script.onload = () => {
+      console.log('JSZip library loaded successfully');
+    };
+    script.onerror = (error) => {
+      console.error('Failed to load JSZip library:', error);
+      this.showError('无法加载JSZip库，导出功能可能无法正常工作');
+    };
+    document.head.appendChild(script);
+  }
+
+  bindEvents() {
+    // 绑定导出按钮事件
+    const exportBtn = this.container.querySelector('.export-confirm-btn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => this.handleExport());
+    }
+    
+    // 绑定导入按钮事件
+    const importBtn = this.container.querySelector('.import-confirm-btn');
+    if (importBtn) {
+      importBtn.addEventListener('click', () => this.handleImport());
+    }
+  }
+
+  // 绑定选项卡切换事件
+  bindTabEvents() {
+    const tabBtns = this.container.querySelectorAll('.export-tab-btn');
+    const tabContents = this.container.querySelectorAll('.export-tab-content');
+    
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabId = btn.dataset.tab;
+        
+        // 移除所有active类
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        
+        // 添加当前tab的active类
+        btn.classList.add('active');
+        document.getElementById(`${tabId}-tab`).classList.add('active');
+      });
+    });
+  }
+
+  // 处理导入操作
+  async handleImport() {
+    try {
+      // 禁用导入按钮
+      const importBtn = this.container.querySelector('.import-confirm-btn');
+      if (importBtn) {
+        importBtn.disabled = true;
+        importBtn.textContent = '导入中...';
+      }
+
+      // 更新状态
+      this.updateImportStatus('正在准备导入...', 'info');
+
+      // 这里可以添加导入逻辑
+      // 例如：读取文件、解析内容、上传到服务器等
+
+      // 显示成功消息
+      this.updateImportStatus('导入功能开发中...', 'info');
+      this.showStatus('导入功能开发中', 'info');
+    } catch (error) {
+      console.error('导入失败:', error);
+      this.updateImportStatus(`导入失败: ${error.message}`, 'error');
+      this.showError(`导入失败: ${error.message}`);
+    } finally {
+      // 启用导入按钮
+      const importBtn = this.container.querySelector('.import-confirm-btn');
+      if (importBtn) {
+        importBtn.disabled = false;
+        importBtn.textContent = '开始导入';
+      }
+    }
+  }
+
+  // 更新导入状态
+  updateImportStatus(message, type = 'info') {
+    const statusDiv = this.container.querySelector('#import-status');
+    if (statusDiv) {
+      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+    }
+  }
+
+  // 更新导出状态
+  updateExportStatus(message, type = 'info') {
+    const statusDiv = this.container.querySelector('#export-status');
+    if (statusDiv) {
+      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+    }
+  }
+
+  // 处理导出操作
+  async handleExport() {
+    try {
+      // 检查JSZip是否加载
+      if (!window.JSZip) {
+        throw new Error('JSZip库未加载，请稍后重试');
+      }
+
+      // 禁用导出按钮
+      const exportBtn = this.container.querySelector('.export-confirm-btn');
+      if (exportBtn) {
+        exportBtn.disabled = true;
+        exportBtn.textContent = '导出中...';
+      }
+
+      // 获取导出选项
+      const createFolders = this.container.querySelector('#export-with-folder').checked;
+      const includeTitle = this.container.querySelector('#export-include-title').checked;
+
+      // 更新状态
+      this.updateExportStatus('正在准备导出...', 'info');
+
+      // 调用导出方法
+      await this.exportMarkdownFiles(createFolders, includeTitle);
+
+      // 显示成功消息
+      this.updateExportStatus('导出完成！', 'success');
+      this.showStatus('Markdown 导出完成', 'success');
+    } catch (error) {
+      console.error('导出失败:', error);
+      this.updateExportStatus(`导出失败: ${error.message}`, 'error');
+      this.showError(`导出失败: ${error.message}`);
+    } finally {
+      // 启用导出按钮
+      const exportBtn = this.container.querySelector('.export-confirm-btn');
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        exportBtn.textContent = '开始导出';
+      }
+    }
+  }
+
+  // 导出 Markdown 文件
+  async exportMarkdownFiles(createFolders, includeTitle) {
+    const zip = new window.JSZip();
+    let fileCount = 0;
+    
+    // 使用 BaseComponent 的 processDocuments 方法处理所有文档
+    await this.processDocuments(async (docData) => {
+      const { content, item } = docData;
+      
+      if (!content || !content.markdownContent) {
+        console.warn(`跳过无内容的文档: ${item.text}`);
+        return;
+      }
+
+      // 使用tocItemId作为文件名
+      let fileName = item.tocItemId ? `${item.tocItemId}.md` : this.sanitizeFileName(item.text) + '.md';
+      
+      // 构建文件路径（如果需要创建文件夹）
+      let filePath = '';
+      if (createFolders && item.documentPath) {
+        // 从 documentPath 提取路径
+        let folderPath = item.documentPath;
+        // 移除开头的斜杠
+        if (folderPath.startsWith('/')) {
+          folderPath = folderPath.substring(1);
+        }
+        // 移除文件名部分
+        const lastSlashIndex = folderPath.lastIndexOf('/');
+        if (lastSlashIndex > 0) {
+          filePath = folderPath.substring(0, lastSlashIndex) + '/';
+        }
+      }
+
+      // 构建完整的文件内容
+      let fileContent = content.markdownContent;
+      
+      // 如果需要包含标题
+      if (includeTitle && item.text) {
+        fileContent = `# ${item.text}\n\n${fileContent}`;
+      }
+
+      // 添加到zip文件
+      zip.file(filePath + fileName, fileContent);
+      fileCount++;
+    });
+
+    // 生成zip文件并下载
+    if (fileCount > 0) {
+      this.updateExportStatus('正在生成ZIP文件...', 'info');
+      
+      try {
+        const content = await zip.generateAsync({ type: 'blob' });
+        this.downloadFile('markdown-export.zip', content);
+      } catch (error) {
+        console.error('生成ZIP文件失败:', error);
+        throw new Error('生成ZIP文件失败');
+      }
+    } else {
+      throw new Error('没有找到可导出的Markdown内容');
+    }
+  }
+
+  // 清理文件名，移除或替换特殊字符
+  sanitizeFileName(fileName) {
+    if (!fileName) return `file-${Date.now()}`;
+    
+    return fileName
+      .replace(/[<>:"/\\|?*]/g, '_') // 移除 Windows 不允许的字符
+      .replace(/\s+/g, ' ') // 替换多个空格为单个空格
+      .trim() // 移除首尾空格
+      .substring(0, 200); // 限制文件名长度
+  }
+
+  // 下载文件
+  downloadFile(filename, content) {
+    // 创建 Blob
+    const blob = content instanceof Blob ? content : new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+    
+    // 创建下载链接
+    const link = document.createElement('a');
+    
+    // 创建 URL
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    
+    // 添加到 DOM 并触发点击
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // 释放 URL 对象
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 100);
+  }
+}
+
+export default ExportMarkdownComponent;
