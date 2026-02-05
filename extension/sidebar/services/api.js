@@ -3,6 +3,8 @@ class DocsAPI {
   static cache = new Map();
   // 缓存过期时间（毫秒），默认 1 小时
   static CACHE_EXPIRY = 60 * 60 * 1000;
+  // API 基础 URL
+  static BASE_URL = 'https://docs.grapecity.com.cn/documentsite/api';
 
   // 从缓存中获取数据
   static getFromCache(key) {
@@ -26,18 +28,50 @@ class DocsAPI {
     });
   }
 
-  static async getDocVersions(productID) {
+  /**
+   * 通用 API 请求方法
+   * @param {string} endpoint - API 端点
+   * @param {Object} options - 请求选项
+   * @param {string} [options.method] - HTTP 方法，默认 GET
+   * @param {Object} [options.headers] - 请求头
+   * @param {Object|Array} [options.body] - 请求体
+   * @param {string} [errorMessage] - 错误消息
+   * @returns {Promise<Object>} - 请求结果
+   */
+  static async request(endpoint, options = {}, errorMessage = 'API 请求失败') {
     try {
-      const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productID}`);
-      if (!response.ok) {
-        throw new Error('获取文档版本失败');
+      const url = `${this.BASE_URL}${endpoint}`;
+      const config = {
+        method: options.method || 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers
+        },
+        ...options
+      };
+
+      // 处理请求体
+      if (config.body && typeof config.body !== 'string') {
+        config.body = JSON.stringify(config.body);
       }
+
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`${errorMessage}: ${errorText || response.statusText}`);
+      }
+      
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('获取文档版本错误:', error);
+      console.error(`${errorMessage}错误:`, error);
       throw error;
     }
+  }
+
+  static async getDocVersions(productID) {
+    return this.request(`/docversion/version/${productID}`, {}, '获取文档版本失败');
   }
 
   static async getDocContent(docId) {
@@ -48,18 +82,9 @@ class DocsAPI {
       return cached;
     }
 
-    try {
-      const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/document/draft/${docId}`);
-      if (!response.ok) {
-        throw new Error('获取文档内容失败');
-      }
-      const data = await response.json();
-      this.setToCache(cacheKey, data);
-      return data;
-    } catch (error) {
-      console.error('获取文档内容错误:', error);
-      throw error;
-    }
+    const data = await this.request(`/document/draft/${docId}`, {}, '获取文档内容失败');
+    this.setToCache(cacheKey, data);
+    return data;
   }
   
   // 清除特定缓存
@@ -83,26 +108,10 @@ class DocsAPI {
    * @returns {Promise<Object>} - 创建结果
    */
   static async createDocPage(pageData) {
-    try {
-      const response = await fetch('https://docs.grapecity.com.cn/documentsite/api/toc/item/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(pageData),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`创建页面失败: ${errorText || response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('创建页面错误:', error);
-      throw error;
-    }
+    return this.request('/toc/item/', {
+      method: 'POST',
+      body: pageData
+    }, '创建页面失败');
   }
   
   /**
@@ -137,25 +146,9 @@ class DocsAPI {
    * @returns {Promise<Object>} - 操作结果
    */
   static async moveToRecycleBin(pageId) {
-    try {
-      const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/toc/item/move-to-recycle-bin/${pageId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`移至回收站失败: ${errorText || response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('移至回收站错误:', error);
-      throw error;
-    }
+    return this.request(`/toc/item/move-to-recycle-bin/${pageId}`, {
+      method: 'DELETE'
+    }, '移至回收站失败');
   }
   
   /**
@@ -164,25 +157,9 @@ class DocsAPI {
    * @returns {Promise<Object>} - 操作结果
    */
   static async permanentlyDeleteDocPage(pageId) {
-    try {
-      const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/toc/item/${pageId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`彻底删除失败: ${errorText || response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('彻底删除错误:', error);
-      throw error;
-    }
+    return this.request(`/toc/item/${pageId}`, {
+      method: 'DELETE'
+    }, '彻底删除失败');
   }
   
   /**
@@ -228,40 +205,28 @@ class DocsAPI {
       return cached;
     }
 
-    try {
-      const url = `https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productId}/tocItem/search?keyword=${encodeURIComponent(keyword)}`;
-      const response = await fetch(url);
+    const data = await this.request(`/docversion/version/${productId}/tocItem/search?keyword=${encodeURIComponent(keyword)}`, {}, '搜索请求失败');
+    
+    // 合并所有结果
+    const allResults = [
+      ...(data.helpDocResult || []),
+      ...(data.apiDocResult || []),
+      ...(data.demoDocResult || [])
+    ];
+    
+    // 排序：完全匹配的结果放在前面
+    const keywordLower = keyword.toLowerCase();
+    allResults.sort((a, b) => {
+      const aExactMatch = a.text.toLowerCase() === keywordLower || a.displayName.toLowerCase() === keywordLower;
+      const bExactMatch = b.text.toLowerCase() === keywordLower || b.displayName.toLowerCase() === keywordLower;
       
-      if (!response.ok) {
-        throw new Error('搜索请求失败');
-      }
-      
-      const data = await response.json();
-      
-      // 合并所有结果
-      const allResults = [
-        ...(data.helpDocResult || []),
-        ...(data.apiDocResult || []),
-        ...(data.demoDocResult || [])
-      ];
-      
-      // 排序：完全匹配的结果放在前面
-      const keywordLower = keyword.toLowerCase();
-      allResults.sort((a, b) => {
-        const aExactMatch = a.text.toLowerCase() === keywordLower || a.displayName.toLowerCase() === keywordLower;
-        const bExactMatch = b.text.toLowerCase() === keywordLower || b.displayName.toLowerCase() === keywordLower;
-        
-        if (aExactMatch && !bExactMatch) return -1;
-        if (!aExactMatch && bExactMatch) return 1;
-        return 0;
-      });
-      
-      this.setToCache(cacheKey, allResults);
-      return allResults;
-    } catch (error) {
-      console.error('搜索文档错误:', error);
-      throw error;
-    }
+      if (aExactMatch && !bExactMatch) return -1;
+      if (!aExactMatch && bExactMatch) return 1;
+      return 0;
+    });
+    
+    this.setToCache(cacheKey, allResults);
+    return allResults;
   }
 }
 
