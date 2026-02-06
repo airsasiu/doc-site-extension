@@ -19,7 +19,6 @@ class ExportMarkdownComponent extends BaseComponent {
     exportContent.innerHTML = `
       <div class="export-tabs">
         <button class="export-tab-btn active" data-tab="export-markdown">导出 Markdown</button>
-        <button class="export-tab-btn" data-tab="export-toc">导出 TOC</button>
         <button class="export-tab-btn" data-tab="import-markdown">导入 Markdown</button>
       </div>
       
@@ -43,23 +42,6 @@ class ExportMarkdownComponent extends BaseComponent {
           <div class="form-group">
             <label>导出状态:</label>
             <div class="export-status" id="export-status">
-              <p>准备就绪</p>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 导出 TOC 选项卡 -->
-        <div class="export-tab-content" id="export-toc-tab">
-          <div class="form-group">
-            <label>TOC 信息:</label>
-            <div class="toc-info">
-              <p>点击下方按钮下载当前文档的 TOC 结构，用于后续的 Markdown 处理。</p>
-              <p>TOC 文件包含了完整的文档结构信息，包括页面 ID、标题、路径等。</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>导出状态:</label>
-            <div class="export-status" id="toc-export-status">
               <p>准备就绪</p>
             </div>
           </div>
