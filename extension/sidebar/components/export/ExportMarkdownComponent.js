@@ -1,5 +1,6 @@
 import BaseComponent from '../base/BaseComponent.js';
 import DocsAPI from '../../services/api.js';
+import URLUtils from '../../services/urlUtils.js';
 
 class ExportMarkdownComponent extends BaseComponent {
   constructor(progressBar) {
@@ -18,6 +19,7 @@ class ExportMarkdownComponent extends BaseComponent {
     exportContent.innerHTML = `
       <div class="export-tabs">
         <button class="export-tab-btn active" data-tab="export-markdown">导出 Markdown</button>
+        <button class="export-tab-btn" data-tab="export-toc">导出 TOC</button>
         <button class="export-tab-btn" data-tab="import-markdown">导入 Markdown</button>
       </div>
       
@@ -46,6 +48,23 @@ class ExportMarkdownComponent extends BaseComponent {
           </div>
         </div>
         
+        <!-- 导出 TOC 选项卡 -->
+        <div class="export-tab-content" id="export-toc-tab">
+          <div class="form-group">
+            <label>TOC 信息:</label>
+            <div class="toc-info">
+              <p>点击下方按钮下载当前文档的 TOC 结构，用于后续的 Markdown 处理。</p>
+              <p>TOC 文件包含了完整的文档结构信息，包括页面 ID、标题、路径等。</p>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>导出状态:</label>
+            <div class="export-status" id="toc-export-status">
+              <p>准备就绪</p>
+            </div>
+          </div>
+        </div>
+        
         <!-- 导入 Markdown 选项卡 -->
         <div class="export-tab-content" id="import-markdown-tab">
           <div class="form-group">
@@ -69,6 +88,7 @@ class ExportMarkdownComponent extends BaseComponent {
       <!-- 操作按钮 -->
       <div class="export-actions">
         <button class="export-confirm-btn" id="export-action-btn">开始导出</button>
+        <button class="export-confirm-btn" id="export-toc-btn">下载 TOC</button>
         <button class="import-confirm-btn" id="import-action-btn">开始导入</button>
       </div>
     `;
@@ -108,14 +128,20 @@ class ExportMarkdownComponent extends BaseComponent {
   }
 
   bindEvents() {
-    // 绑定导出按钮事件
-    const exportBtn = this.container.querySelector('.export-confirm-btn');
+    // 绑定导出Markdown按钮事件
+    const exportBtn = this.container.querySelector('#export-action-btn');
     if (exportBtn) {
       exportBtn.addEventListener('click', () => this.handleExport());
     }
     
+    // 绑定下载TOC按钮事件
+    const exportTOCBtn = this.container.querySelector('#export-toc-btn');
+    if (exportTOCBtn) {
+      exportTOCBtn.addEventListener('click', () => this.handleExportTOC());
+    }
+    
     // 绑定导入按钮事件
-    const importBtn = this.container.querySelector('.import-confirm-btn');
+    const importBtn = this.container.querySelector('#import-action-btn');
     if (importBtn) {
       importBtn.addEventListener('click', () => this.handleImport());
     }
@@ -174,9 +200,102 @@ class ExportMarkdownComponent extends BaseComponent {
     }
   }
 
+  // 处理TOC导出操作
+  async handleExportTOC() {
+    try {
+      // 禁用下载TOC按钮
+      const exportTOCBtn = this.container.querySelector('#export-toc-btn');
+      if (exportTOCBtn) {
+        exportTOCBtn.disabled = true;
+        exportTOCBtn.textContent = '下载中...';
+      }
+
+      // 更新状态
+      this.updateTOCExportStatus('正在获取TOC结构...', 'info');
+
+      // 获取TOC结构
+      const tocData = await this.getTOCData();
+
+      // 转换为JSON格式
+      const tocJson = JSON.stringify(tocData, null, 2);
+
+      // 生成文件名
+      const fileName = `toc-${Date.now()}.json`;
+
+      // 下载文件
+      this.downloadFile(fileName, tocJson);
+
+      // 显示成功消息
+      this.updateTOCExportStatus('TOC下载完成！', 'success');
+      this.showStatus('TOC下载完成', 'success');
+    } catch (error) {
+      console.error('TOC导出失败:', error);
+      this.updateTOCExportStatus(`TOC导出失败: ${error.message}`, 'error');
+      this.showError(`TOC导出失败: ${error.message}`);
+    } finally {
+      // 启用下载TOC按钮
+      const exportTOCBtn = this.container.querySelector('#export-toc-btn');
+      if (exportTOCBtn) {
+        exportTOCBtn.disabled = false;
+        exportTOCBtn.textContent = '下载 TOC';
+      }
+    }
+  }
+
+  // 获取TOC数据
+  async getTOCData() {
+    // 如果已有TOC数据，直接返回
+    if (this.tocData) {
+      return this.tocData;
+    }
+
+    // 尝试从API获取TOC数据
+    try {
+      // 获取当前标签页URL
+      const currentUrl = await URLUtils.getCurrentTabUrl();
+      
+      // 从URL中提取产品ID
+      const productID = URLUtils.getProductIDFromURL(currentUrl);
+      
+      // 从URL中提取页面类型
+      const pageType = URLUtils.getPageTypeFromURL(currentUrl);
+      
+      if (!productID) {
+        throw new Error('无法获取产品ID，请确保在文档编辑页面使用此扩展');
+      }
+
+      // 获取文档版本信息
+      const versions = await DocsAPI.getDocVersions(productID);
+      
+      // 根据页面类型选择正确的TOC对象
+      let tocData;
+      if (pageType === 'DemoEdit' && versions.demoToc && versions.demoToc.tocItemDrafts) {
+        tocData = versions.demoToc;
+      } else {
+        // 默认使用 helpdoc 的 TOC
+        tocData = versions.toc;
+      }
+      
+      // 保存TOC数据
+      this.tocData = tocData;
+      return tocData;
+    } catch (error) {
+      console.error('获取TOC数据失败:', error);
+      throw new Error('无法获取TOC数据，请确保已加载文档结构');
+    }
+  }
+
   // 更新导入状态
   updateImportStatus(message, type = 'info') {
     const statusDiv = this.container.querySelector('#import-status');
+    if (statusDiv) {
+      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+    }
+  }
+
+  // 更新TOC导出状态
+  updateTOCExportStatus(message, type = 'info') {
+    const statusDiv = this.container.querySelector('#toc-export-status');
     if (statusDiv) {
       statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
     }
