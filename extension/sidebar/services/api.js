@@ -67,8 +67,8 @@ class DocsAPI {
         return data;
       } catch (jsonError) {
         // 处理空响应体或JSON解析错误
-        if (jsonError instanceof SyntaxError && jsonError.message.includes('Unexpected end of JSON input')) {
-          console.warn('响应体为空，返回空对象');
+        if (jsonError instanceof SyntaxError) {
+          console.warn('响应体不是有效的JSON，返回空对象:', jsonError.message);
           return {};
         }
         throw jsonError;
@@ -83,17 +83,38 @@ class DocsAPI {
     return this.request(`/docversion/version/${productID}`, {}, '获取文档版本失败');
   }
 
-  static async getDocContent(docId) {
-    const cacheKey = `docContent_${docId}`;
+  static async getDocContent(docId, productId = null, pageType = null) {
+    const cacheKey = `docContent_${docId}_${productId || 'unknown'}_${pageType || 'unknown'}`;
     const cached = this.getFromCache(cacheKey);
     if (cached) {
       console.log('使用缓存的文档内容数据');
       return cached;
     }
 
-    const data = await this.request(`/document/draft/${docId}`, {}, '获取文档内容失败');
-    this.setToCache(cacheKey, data);
-    return data;
+    try {
+      console.log(`尝试获取文档内容，端点: /document/draft/${docId}`);
+      const data = await this.request(`/document/draft/${docId}`, {}, '获取文档内容失败');
+      
+      if (data) {
+        console.log('成功获取文档内容，响应数据:', JSON.stringify(data, null, 2));
+        
+        // 检查是否包含 markdownContent 字段
+        if (data.markdownContent) {
+          console.log('找到 markdownContent 字段');
+          this.setToCache(cacheKey, data);
+          return data;
+        } else {
+          console.warn('响应数据中没有 markdownContent 字段:', Object.keys(data));
+          throw new Error('API返回的数据中没有markdownContent字段');
+        }
+      } else {
+        console.warn('API返回空数据');
+        throw new Error('API返回空数据');
+      }
+    } catch (error) {
+      console.error('获取文档内容失败:', error);
+      throw error;
+    }
   }
   
   // 清除特定缓存

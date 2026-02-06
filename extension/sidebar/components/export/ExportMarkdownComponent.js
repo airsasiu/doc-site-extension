@@ -391,14 +391,32 @@ class ExportMarkdownComponent extends BaseComponent {
         throw new Error('无法获取页面ID，请确保在文档编辑页面使用此扩展');
       }
 
-      // 获取当前页面的markdown内容
-      const docContent = await DocsAPI.getDocContent(tocItemId);
+      // 获取TOC数据
+      const tocData = await this.getTOCData();
       
-      if (!docContent || !docContent.markdownContent) {
-        throw new Error('无法获取页面内容');
+      // 从TOC数据中查找正确的ID
+      const tocItem = this.findTocItemById(tocData.tocItemDrafts, tocItemId);
+      
+      if (!tocItem || !tocItem.id) {
+        throw new Error('无法从TOC数据中找到页面信息，请确保文档结构已加载');
+      }
+      
+      console.log('找到的TOC项:', tocItem);
+      console.log('使用的页面ID:', tocItem.id);
+
+      // 获取当前页面的markdown内容
+      const docContent = await DocsAPI.getDocContent(tocItem.id, productID, pageType);
+      
+      if (!docContent || typeof docContent !== 'object') {
+        throw new Error('无法获取页面内容，API返回的数据格式不正确');
       }
 
-      const markdown = docContent.markdownContent;
+      // 尝试从不同的属性中获取markdown内容
+      const markdown = docContent.markdownContent || docContent.content;
+      
+      if (!markdown) {
+        throw new Error('无法获取页面内容，API返回的数据中没有markdown内容');
+      }
 
       // 分析jscodemine链接
       const jscodemineLinks = this.extractJscodemineLinks(markdown);
@@ -422,6 +440,39 @@ class ExportMarkdownComponent extends BaseComponent {
       this.updateAnalyzeResult(`分析失败: ${error.message}`);
       this.showError(`分析失败: ${error.message}`);
     }
+  }
+
+  // 递归查找TOC中指定ID的项
+  findTocItemById(tocData, targetId) {
+    // 处理数组类型的TOC
+    if (Array.isArray(tocData)) {
+      for (const item of tocData) {
+        const result = this.findTocItemById(item, targetId);
+        if (result) {
+          return result;
+        }
+      }
+    }
+    // 处理对象类型的TOC项
+    else if (typeof tocData === 'object' && tocData !== null) {
+      // 检查当前项
+      if (tocData.tocItemId === targetId || tocData.id === targetId) {
+        return tocData;
+      }
+      
+      // 递归检查子项
+      const childrenKeys = ['children', 'items', 'tocItemDrafts', 'subItems', 'subsections'];
+      for (const key of childrenKeys) {
+        if (tocData[key]) {
+          const result = this.findTocItemById(tocData[key], targetId);
+          if (result) {
+            return result;
+          }
+        }
+      }
+    }
+    
+    return null;
   }
 
   // 从markdown内容中提取jscodemine链接
