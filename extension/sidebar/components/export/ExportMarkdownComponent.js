@@ -479,14 +479,17 @@ class ExportMarkdownComponent extends BaseComponent {
   extractJscodemineLinks(markdown) {
     const links = [];
     
-    // 匹配在线Demo链接
-    const demoLinkRegex = /在线 Demo \((https:\/\/jscodemine\.grapecity\.com\/[^)]+)\)/g;
+    // 1. 提取所有markdown链接
+    const linkRegex = /(?<!\!)\[(.*?)\]\((.*?)\)/g;
     let match;
-    while ((match = demoLinkRegex.exec(markdown)) !== null) {
-      links.push(match[1]);
+    while ((match = linkRegex.exec(markdown)) !== null) {
+      const url = match[2];
+      if (url.includes('jscodemine')) {
+        links.push(url);
+      }
     }
     
-    // 匹配codemineBlock中的链接
+    // 2. 匹配codemineBlock中的链接
     const codemineBlockRegex = /\$\$codemineBlock[\s\S]*?"exportedShaToken":"([^"]+)"[\s\S]*?\$\$/g;
     while ((match = codemineBlockRegex.exec(markdown)) !== null) {
       const token = match[1];
@@ -494,7 +497,7 @@ class ExportMarkdownComponent extends BaseComponent {
       links.push(codemineLink);
     }
     
-    // 去重
+    // 3. 去重
     return [...new Set(links)];
   }
 

@@ -1046,6 +1046,9 @@ body {
   line-height: 1.5;
   color: #666;
   white-space: pre-wrap;
+  word-break: break-all;
+  word-wrap: break-word;
+  overflow-x: hidden;
 }
 
 /* 分析按钮样式 */
