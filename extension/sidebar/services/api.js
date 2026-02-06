@@ -62,8 +62,17 @@ class DocsAPI {
         throw new Error(`${errorMessage}: ${errorText || response.statusText}`);
       }
       
-      const data = await response.json();
-      return data;
+      try {
+        const data = await response.json();
+        return data;
+      } catch (jsonError) {
+        // 处理空响应体或JSON解析错误
+        if (jsonError instanceof SyntaxError && jsonError.message.includes('Unexpected end of JSON input')) {
+          console.warn('响应体为空，返回空对象');
+          return {};
+        }
+        throw jsonError;
+      }
     } catch (error) {
       console.error(`${errorMessage}错误:`, error);
       throw error;

@@ -57,6 +57,16 @@ class ExportMarkdownComponent extends BaseComponent {
                 <input type="text" id="rewrite-download-url" placeholder="输入下载URL">
                 <label for="rewrite-download-url">下载 URL</label>
               </div>
+              <div class="rewrite-option">
+                <button class="analyze-btn" id="analyze-jscodemine-btn">从当前页面分析 jscodemine 链接</button>
+                <label>分析链接</label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>分析结果:</label>
+            <div class="analyze-result" id="analyze-result">
+              <p>点击上方按钮从当前页面分析 jscodemine 链接</p>
             </div>
           </div>
           <div class="form-group">
@@ -159,6 +169,12 @@ class ExportMarkdownComponent extends BaseComponent {
     const rewriteBtn = this.container.querySelector('#rewrite-action-btn');
     if (rewriteBtn) {
       rewriteBtn.addEventListener('click', () => this.handleRewrite());
+    }
+    
+    // 绑定分析jscodemine链接按钮事件
+    const analyzeBtn = this.container.querySelector('#analyze-jscodemine-btn');
+    if (analyzeBtn) {
+      analyzeBtn.addEventListener('click', () => this.analyzeJscodemineLinks());
     }
     
     // 绑定导入按钮事件
@@ -349,6 +365,93 @@ class ExportMarkdownComponent extends BaseComponent {
     const resultDiv = this.container.querySelector('#rewrite-result');
     if (resultDiv) {
       resultDiv.innerHTML = `<pre>${result}</pre>`;
+    }
+  }
+
+  // 分析当前页面的jscodemine链接
+  async analyzeJscodemineLinks() {
+    try {
+      // 更新分析结果状态
+      this.updateAnalyzeResult('正在分析页面...');
+
+      // 获取当前标签页URL
+      const currentUrl = await URLUtils.getCurrentTabUrl();
+      const productID = URLUtils.getProductIDFromURL(currentUrl);
+      const pageType = URLUtils.getPageTypeFromURL(currentUrl);
+      
+      if (!productID) {
+        throw new Error('无法获取产品ID，请确保在文档编辑页面使用此扩展');
+      }
+
+      // 从URL中提取tocItemId
+      const urlParams = new URLSearchParams(currentUrl.split('?')[1] || '');
+      const tocItemId = urlParams.get('tocItemId');
+      
+      if (!tocItemId) {
+        throw new Error('无法获取页面ID，请确保在文档编辑页面使用此扩展');
+      }
+
+      // 获取当前页面的markdown内容
+      const docContent = await DocsAPI.getDocContent(tocItemId);
+      
+      if (!docContent || !docContent.markdownContent) {
+        throw new Error('无法获取页面内容');
+      }
+
+      const markdown = docContent.markdownContent;
+
+      // 分析jscodemine链接
+      const jscodemineLinks = this.extractJscodemineLinks(markdown);
+
+      if (jscodemineLinks.length === 0) {
+        this.updateAnalyzeResult('未找到jscodemine链接');
+        this.showStatus('未找到jscodemine链接', 'info');
+      } else {
+        // 显示分析结果
+        const linksText = jscodemineLinks.map((link, index) => `${index + 1}. ${link}`).join('\n');
+        this.updateAnalyzeResult(`找到 ${jscodemineLinks.length} 个jscodemine链接:\n${linksText}`);
+        
+        // 自动填充第一个链接到下载URL输入框
+        this.container.querySelector('#rewrite-download-url').value = jscodemineLinks[0];
+        
+        this.showStatus(`成功分析出 ${jscodemineLinks.length} 个jscodemine链接`, 'success');
+      }
+
+    } catch (error) {
+      console.error('分析jscodemine链接失败:', error);
+      this.updateAnalyzeResult(`分析失败: ${error.message}`);
+      this.showError(`分析失败: ${error.message}`);
+    }
+  }
+
+  // 从markdown内容中提取jscodemine链接
+  extractJscodemineLinks(markdown) {
+    const links = [];
+    
+    // 匹配在线Demo链接
+    const demoLinkRegex = /在线 Demo \((https:\/\/jscodemine\.grapecity\.com\/[^)]+)\)/g;
+    let match;
+    while ((match = demoLinkRegex.exec(markdown)) !== null) {
+      links.push(match[1]);
+    }
+    
+    // 匹配codemineBlock中的链接
+    const codemineBlockRegex = /\$\$codemineBlock[\s\S]*?"exportedShaToken":"([^"]+)"[\s\S]*?\$\$/g;
+    while ((match = codemineBlockRegex.exec(markdown)) !== null) {
+      const token = match[1];
+      const codemineLink = `https://jscodemine.grapecity.com/share/${token}`;
+      links.push(codemineLink);
+    }
+    
+    // 去重
+    return [...new Set(links)];
+  }
+
+  // 更新分析结果
+  updateAnalyzeResult(message) {
+    const resultDiv = this.container.querySelector('#analyze-result');
+    if (resultDiv) {
+      resultDiv.innerHTML = `<p>${message}</p>`;
     }
   }
 
