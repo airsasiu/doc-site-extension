@@ -19,6 +19,7 @@ class ExportMarkdownComponent extends BaseComponent {
     exportContent.innerHTML = `
       <div class="export-tabs">
         <button class="export-tab-btn active" data-tab="export-markdown">导出 Markdown</button>
+        <button class="export-tab-btn" data-tab="rewrite-markdown">重写文档</button>
         <button class="export-tab-btn" data-tab="import-markdown">导入 Markdown</button>
       </div>
       
@@ -47,6 +48,37 @@ class ExportMarkdownComponent extends BaseComponent {
           </div>
         </div>
         
+        <!-- 重写文档选项卡 -->
+        <div class="export-tab-content" id="rewrite-markdown-tab">
+          <div class="form-group">
+            <label>重写设置:</label>
+            <div class="rewrite-options">
+              <div class="rewrite-option">
+                <input type="text" id="rewrite-download-url" placeholder="输入下载URL">
+                <label for="rewrite-download-url">下载 URL</label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>重写状态:</label>
+            <div class="rewrite-status" id="rewrite-status">
+              <p>准备就绪</p>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>重写进度:</label>
+            <div class="rewrite-progress" id="rewrite-progress">
+              <p>等待开始</p>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>重写结果:</label>
+            <div class="rewrite-result" id="rewrite-result">
+              <p>无结果</p>
+            </div>
+          </div>
+        </div>
+        
         <!-- 导入 Markdown 选项卡 -->
         <div class="export-tab-content" id="import-markdown-tab">
           <div class="form-group">
@@ -71,6 +103,7 @@ class ExportMarkdownComponent extends BaseComponent {
       <div class="export-actions">
         <button class="export-confirm-btn" id="export-action-btn">开始导出</button>
         <button class="export-confirm-btn" id="export-toc-btn">下载 TOC</button>
+        <button class="export-confirm-btn" id="rewrite-action-btn">开始重写</button>
         <button class="import-confirm-btn" id="import-action-btn">开始导入</button>
       </div>
     `;
@@ -120,6 +153,12 @@ class ExportMarkdownComponent extends BaseComponent {
     const exportTOCBtn = this.container.querySelector('#export-toc-btn');
     if (exportTOCBtn) {
       exportTOCBtn.addEventListener('click', () => this.handleExportTOC());
+    }
+    
+    // 绑定文档重写按钮事件
+    const rewriteBtn = this.container.querySelector('#rewrite-action-btn');
+    if (rewriteBtn) {
+      rewriteBtn.addEventListener('click', () => this.handleRewrite());
     }
     
     // 绑定导入按钮事件
@@ -179,6 +218,137 @@ class ExportMarkdownComponent extends BaseComponent {
         importBtn.disabled = false;
         importBtn.textContent = '开始导入';
       }
+    }
+  }
+
+  // 处理文档重写操作
+  async handleRewrite() {
+    try {
+      // 禁用重写按钮
+      const rewriteBtn = this.container.querySelector('#rewrite-action-btn');
+      if (rewriteBtn) {
+        rewriteBtn.disabled = true;
+        rewriteBtn.textContent = '重写中...';
+      }
+
+      // 获取下载URL
+      const downloadUrl = this.container.querySelector('#rewrite-download-url').value.trim();
+      if (!downloadUrl) {
+        throw new Error('请输入下载URL');
+      }
+
+      // 获取Node服务器地址
+      const config = await this.getConfig();
+      const SERVER_URL = config.nodeServerUrl;
+      if (!SERVER_URL) {
+        throw new Error('请在配置页面设置Node服务器地址');
+      }
+
+      // 更新状态
+      this.updateRewriteStatus('正在重写文档...', 'info');
+      this.updateRewriteProgress('开始重写文档...');
+      this.updateRewriteResult('无结果');
+
+      // 发送流式请求
+      const response = await fetch(`${SERVER_URL}/api/generate/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ downloadUrl })
+      });
+
+      if (!response.ok) {
+        throw new Error(`服务器响应错误: ${response.status}`);
+      }
+
+      // 处理流式响应
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let markdown = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.substring(6));
+            
+            if (data.type === 'chunk') {
+              // 实时更新进度
+              markdown += data.content;
+              this.updateRewriteProgress(`已生成 ${markdown.length} 字符...`);
+              this.updateRewriteResult(markdown);
+            } else if (data.type === 'complete') {
+              // 生成完成
+              markdown = data.result.content;
+              this.updateRewriteStatus('✓ 文档重写成功！', 'success');
+              this.updateRewriteProgress('重写完成');
+              this.updateRewriteResult(markdown);
+              
+              // 复制到剪贴板
+              try {
+                await navigator.clipboard.writeText(markdown);
+                this.showStatus('重写结果已复制到剪贴板', 'success');
+              } catch (clipboardError) {
+                console.warn('无法复制到剪贴板:', clipboardError);
+              }
+            } else if (data.type === 'error') {
+              throw new Error(data.error);
+            }
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('文档重写失败:', error);
+      this.updateRewriteStatus(`✗ 重写失败`, 'error');
+      this.updateRewriteProgress('重写失败');
+      this.updateRewriteResult(error.message);
+      this.showError(`文档重写失败: ${error.message}`);
+    } finally {
+      // 启用重写按钮
+      const rewriteBtn = this.container.querySelector('#rewrite-action-btn');
+      if (rewriteBtn) {
+        rewriteBtn.disabled = false;
+        rewriteBtn.textContent = '开始重写';
+      }
+    }
+  }
+
+  // 获取配置
+  async getConfig() {
+    return new Promise((resolve) => {
+      chrome.storage.sync.get(['docSiteHelperConfig'], (result) => {
+        const config = result.docSiteHelperConfig || {};
+        resolve(config);
+      });
+    });
+  }
+
+  // 更新重写状态
+  updateRewriteStatus(message, type = 'info') {
+    const statusDiv = this.container.querySelector('#rewrite-status');
+    if (statusDiv) {
+      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+    }
+  }
+
+  // 更新重写进度
+  updateRewriteProgress(message) {
+    const progressDiv = this.container.querySelector('#rewrite-progress');
+    if (progressDiv) {
+      progressDiv.innerHTML = `<p>${message}</p>`;
+    }
+  }
+
+  // 更新重写结果
+  updateRewriteResult(result) {
+    const resultDiv = this.container.querySelector('#rewrite-result');
+    if (resultDiv) {
+      resultDiv.innerHTML = `<pre>${result}</pre>`;
     }
   }
 

@@ -6,6 +6,7 @@ const DEFAULT_CONFIG = {
   sourceProductId: '',
   docApiUrl: 'https://docs.grapecity.com.cn/documentsite/api',
   copyToClipboard: true,
+  nodeServerUrl: '',
   linkRules: {
     "java": {
       "apiPathPattern": "/document-solutions/.*?/api/online/",
@@ -37,6 +38,7 @@ function saveOptions() {
       sourceProductId: document.getElementById('sourceProductId').value.trim(),
       docApiUrl: document.getElementById('docApiUrl').value.trim(),
       copyToClipboard: document.getElementById('copyToClipboard').checked,
+      nodeServerUrl: document.getElementById('nodeServerUrl').value.trim(),
       linkRules: linkRules
     };
 
@@ -57,6 +59,7 @@ function loadOptions() {
     document.getElementById('sourceProductId').value = config.sourceProductId;
     document.getElementById('docApiUrl').value = config.docApiUrl;
     document.getElementById('copyToClipboard').checked = config.copyToClipboard;
+    document.getElementById('nodeServerUrl').value = config.nodeServerUrl;
     document.getElementById('linkRules').value = JSON.stringify(config.linkRules, null, 2);
   });
 }
@@ -67,6 +70,7 @@ function resetOptions() {
   document.getElementById('sourceProductId').value = DEFAULT_CONFIG.sourceProductId;
   document.getElementById('docApiUrl').value = DEFAULT_CONFIG.docApiUrl;
   document.getElementById('copyToClipboard').checked = DEFAULT_CONFIG.copyToClipboard;
+  document.getElementById('nodeServerUrl').value = DEFAULT_CONFIG.nodeServerUrl;
   document.getElementById('linkRules').value = JSON.stringify(DEFAULT_CONFIG.linkRules, null, 2);
   showStatus('已重置为默认值', 'success');
 }
