@@ -2,11 +2,16 @@
  * 测试内容拼接逻辑
  * 合并了 run-test.js 和 test-content-merge.js 的功能
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// 获取当前文件的目录名
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 导入内容合并工具
-const { mergeContent, extractPreservedContent } = require('../utils/contentMerger.js');
+import { mergeContent, extractPreservedContent } from '../utils/contentMerger.js';
 
 // 测试文件路径
 const testFiles = {
@@ -138,17 +143,19 @@ if (typeof window !== 'undefined') {
   console.log('测试函数已暴露到全局，可通过调用 runTest() 来执行测试');
 }
 
-// 导出测试函数，方便在其他测试中使用
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    runTest,
-    extractPreservedContent,
-    mergeContent,
-    compareResults
-  };
+// 如果直接运行此文件，执行测试
+if (import.meta.url.startsWith('file:')) {
+  const url = new URL(import.meta.url);
+  const filePath = url.pathname;
+  if (filePath.endsWith('test-merge.mjs')) {
+    runTest();
+  }
 }
 
-// 如果直接运行此文件，执行测试
-if (require.main === module) {
-  runTest();
-}
+// 导出测试函数，方便在其他测试中使用
+export {
+  runTest,
+  extractPreservedContent,
+  mergeContent,
+  compareResults
+};

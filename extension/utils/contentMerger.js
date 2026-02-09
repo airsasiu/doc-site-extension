@@ -8,7 +8,7 @@
  * @param {string} originalMarkdown - 原始markdown内容
  * @returns {string} 提取的保留内容
  */
-function extractPreservedContent(originalMarkdown) {
+export function extractPreservedContent(originalMarkdown) {
   let videoMarkdown = '';
   let fullscreenMarkdown = '';
   let codemineBlockMarkdown = '';
@@ -77,7 +77,7 @@ function extractPreservedContent(originalMarkdown) {
  * @param {string} originalMarkdown - 原始markdown内容
  * @returns {string} 合并后的内容
  */
-function mergeContent(rewrittenMarkdown, originalMarkdown) {
+export function mergeContent(rewrittenMarkdown, originalMarkdown) {
   // 提取保留内容
   const preservedContent = extractPreservedContent(originalMarkdown);
   
@@ -90,21 +90,10 @@ function mergeContent(rewrittenMarkdown, originalMarkdown) {
   return mergedContent;
 }
 
-// 导出函数，支持 CommonJS 和 ES6 模块系统
-if (typeof module !== 'undefined' && module.exports) {
-  // CommonJS 模块导出
-  module.exports = {
-    extractPreservedContent,
-    mergeContent
-  };
-} else if (typeof window !== 'undefined') {
-  // 浏览器环境导出
+// 浏览器环境导出
+if (typeof window !== 'undefined') {
   window.contentMerger = {
     extractPreservedContent,
     mergeContent
   };
-} else if (typeof exports !== 'undefined') {
-  // ES6 模块导出
-  exports.extractPreservedContent = extractPreservedContent;
-  exports.mergeContent = mergeContent;
 }

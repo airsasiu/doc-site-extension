@@ -1,9 +1,7 @@
 import BaseComponent from '../base/BaseComponent.js';
 import DocsAPI from '../../services/api.js';
 import URLUtils from '../../services/urlUtils.js';
-
-// 导入内容合并工具
-const { extractPreservedContent, mergeContent } = require('../../../utils/contentMerger.js');
+import { extractPreservedContent, mergeContent } from '../../../utils/contentMerger.js';
 
 class ExportMarkdownComponent extends BaseComponent {
   constructor(progressBar) {
