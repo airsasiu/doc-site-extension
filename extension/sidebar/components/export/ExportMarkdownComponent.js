@@ -335,6 +335,19 @@ class ExportMarkdownComponent extends BaseComponent {
         throw new Error('无法解析服务器响应数据');
       }
 
+      // 获取当前页面需要保留的内容
+      const currentTab = await this.getCurrentTab();
+      const preservedContent = await this.getPreservedContent(currentTab.id);
+      
+      // 拼接保留的内容到重写后的markdown末尾
+      if (preservedContent) {
+        markdown += '\n\n' + preservedContent;
+        this.updateRewriteResult(markdown);
+      }
+
+      // 将拼接后的内容写回到当前页面的编辑器中
+      await this.writeMarkdownToEditor(currentTab.id, markdown);
+
     } catch (error) {
       console.error('文档重写失败:', error);
       this.updateRewriteStatus(`✗ 重写失败`, 'error');
@@ -349,6 +362,163 @@ class ExportMarkdownComponent extends BaseComponent {
         rewriteBtn.textContent = '开始重写';
       }
     }
+  }
+
+  // 获取当前标签页
+  async getCurrentTab() {
+    return new Promise((resolve) => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        resolve(tabs[0]);
+      });
+    });
+  }
+
+  // 获取当前页面需要保留的内容
+  async getPreservedContent(tabId) {
+    return new Promise((resolve) => {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabId },
+          func: () => {
+            // 获取当前页面的markdown内容
+            function getCurrentMarkdown() {
+              const editorContainer = document.querySelector('.toastui-editor.md-mode');
+              if (editorContainer) {
+                const textarea = editorContainer.querySelector('textarea');
+                if (textarea) {
+                  return textarea.value;
+                }
+              }
+              return '';
+            }
+
+            const currentMarkdown = getCurrentMarkdown();
+            if (!currentMarkdown) {
+              return '';
+            }
+
+            // 提取需要保留的内容
+            let videoMarkdown = '';
+            let fullscreenMarkdown = '';
+            let codemineBlockMarkdown = '';
+            console.log('开始提取需要保留的内容');
+            console.log('当前markdown内容长度:', currentMarkdown.length);
+            console.log('当前markdown内容前500字符:', currentMarkdown.substring(0, 500));
+
+            // 1. 提取操作视频的链接markdown
+            console.log('开始提取操作视频的链接markdown');
+            // 匹配完整的markdown链接格式，包含操作视频文本
+            const videoLinkRegex = /\[操作视频\]\([^)]+\)/g;
+            let match;
+            let videoLinksFound = 0;
+            while ((match = videoLinkRegex.exec(currentMarkdown)) !== null) {
+              console.log('找到视频链接markdown:', match[0]);
+              videoMarkdown += match[0] + '\n\n';
+              videoLinksFound++;
+            }
+            console.log('视频链接markdown提取完成，共找到:', videoLinksFound, '个');
+
+            // 2. 提取全屏打开Demo的示例链接markdown
+            console.log('开始提取全屏打开Demo的示例链接markdown');
+            // 匹配完整的markdown链接格式，包含全屏打开文本
+            const demoLinkRegex = /\[全屏打开\]\([^)]+\)/g;
+            let demoLinksFound = 0;
+            while ((match = demoLinkRegex.exec(currentMarkdown)) !== null) {
+              console.log('找到全屏Demo链接markdown:', match[0]);
+              fullscreenMarkdown += match[0] + '\n\n';
+              demoLinksFound++;
+            }
+            console.log('全屏Demo链接markdown提取完成，共找到:', demoLinksFound, '个');
+
+            // 3. 提取包含全屏打开的整行
+            console.log('开始提取包含全屏打开的整行');
+            const fullscreenLineRegex = /^.*\[全屏打开\]\([^)]+\).*$/gm;
+            let fullscreenLinesFound = 0;
+            while ((match = fullscreenLineRegex.exec(currentMarkdown)) !== null) {
+              console.log('找到包含全屏打开的整行:', match[0]);
+              fullscreenMarkdown += match[0] + '\n\n';
+              fullscreenLinesFound++;
+            }
+            console.log('包含全屏打开的整行提取完成，共找到:', fullscreenLinesFound, '个');
+
+            // 去重，避免重复添加
+            const lines = fullscreenMarkdown.trim().split('\n');
+            const uniqueLines = [...new Set(lines)];
+            fullscreenMarkdown = uniqueLines.join('\n') + '\n\n';
+
+            // 3. 提取jscodemineblock
+            console.log('开始提取jscodemineblock');
+            const codemineBlockRegex = /\$\$codemineBlock[\s\S]*?\$\$/g;
+            let codemineBlocksFound = 0;
+            while ((match = codemineBlockRegex.exec(currentMarkdown)) !== null) {
+              console.log('找到jscodemineblock，长度:', match[0].length);
+              codemineBlockMarkdown += match[0] + '\n\n';
+              codemineBlocksFound++;
+            }
+            console.log('jscodemineblock提取完成，共找到:', codemineBlocksFound, '个');
+            
+            // 组合保留内容
+            let preservedContent = videoMarkdown + fullscreenMarkdown + codemineBlockMarkdown;
+            console.log('最终提取的保留内容长度:', preservedContent.length);
+            console.log('最终提取的保留内容前500字符:', preservedContent.substring(0, 500));
+
+            return preservedContent;
+          }
+        },
+        (results) => {
+          if (results && results[0] && results[0].result) {
+            resolve(results[0].result);
+          } else {
+            resolve('');
+          }
+        }
+      );
+    });
+  }
+
+  // 将markdown内容写回到编辑器中
+  async writeMarkdownToEditor(tabId, markdown) {
+    return new Promise((resolve) => {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabId },
+          func: (content) => {
+            // 查找编辑框容器
+            const editorContainer = document.querySelector('.toastui-editor.md-mode');
+            if (editorContainer) {
+              // 查找textarea元素
+              let textarea = editorContainer.querySelector('textarea');
+              if (!textarea) {
+                // 如果找不到textarea，尝试查找可能的隐藏textarea或其他输入元素
+                textarea = editorContainer.querySelector('textarea, input[type="text"]');
+              }
+              
+              if (textarea) {
+                // 设置textarea的值
+                textarea.value = content;
+                
+                // 触发input事件，让编辑器检测到内容变化
+                textarea.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                
+                console.log('Markdown内容已成功写入编辑器');
+                return true;
+              }
+            }
+            console.log('无法找到编辑器元素');
+            return false;
+          },
+          args: [markdown]
+        },
+        (results) => {
+          if (results && results[0] && results[0].result) {
+            this.showStatus('重写后的内容已成功写入编辑器', 'success');
+          } else {
+            this.showStatus('无法写入编辑器，内容已复制到剪贴板', 'info');
+          }
+          resolve();
+        }
+      );
+    });
   }
 
   // 获取配置
