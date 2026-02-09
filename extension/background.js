@@ -281,4 +281,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     return true; // 保持消息通道打开
   }
+  
+  // 处理文档重写的请求
+  if (request.type === 'rewriteDocument') {
+    const { serverUrl, downloadUrl } = request;
+    
+    fetch(`${serverUrl}/api/generate/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ downloadUrl })
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`服务器响应错误: ${response.status}`);
+        }
+        return response.text();
+      })
+      .then(data => {
+        sendResponse({ success: true, data: data });
+      })
+      .catch(error => {
+        console.error('文档重写失败:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // 保持消息通道打开
+  }
 });

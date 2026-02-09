@@ -14,7 +14,9 @@
   "host_permissions": [
     "https://docs.grapecity.com.cn/*",
     "https://developer.mescius.com/*",
-    "https://docapp.mescius.io/*"
+    "https://docapp.mescius.io/*",
+    "http://127.0.0.1:*",
+    "http://localhost:*"
   ],
   "side_panel": {
     "default_path": "sidebar/sidebar.html"

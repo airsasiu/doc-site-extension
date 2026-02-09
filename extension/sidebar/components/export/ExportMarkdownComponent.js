@@ -248,9 +248,18 @@ class ExportMarkdownComponent extends BaseComponent {
       }
 
       // 获取下载URL
-      const downloadUrl = this.container.querySelector('#rewrite-download-url').value.trim();
+      let downloadUrl = this.container.querySelector('#rewrite-download-url').value.trim();
       if (!downloadUrl) {
         throw new Error('请输入下载URL');
+      }
+
+      // 处理jscodemine链接，添加handler=DownloadProject参数
+      if (downloadUrl.includes('jscodemine.grapecity.com')) {
+        if (!downloadUrl.includes('?handler=DownloadProject')) {
+          // 检查是否已有查询参数
+          const separator = downloadUrl.includes('?') ? '&' : '?';
+          downloadUrl += `${separator}handler=DownloadProject`;
+        }
       }
 
       // 获取Node服务器地址
@@ -265,41 +274,42 @@ class ExportMarkdownComponent extends BaseComponent {
       this.updateRewriteProgress('开始重写文档...');
       this.updateRewriteResult('无结果');
 
-      // 发送流式请求
-      const response = await fetch(`${SERVER_URL}/api/generate/stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ downloadUrl })
+      // 通过 background script 发送请求，避免 CORS 错误
+      const result = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { 
+            type: 'rewriteDocument', 
+            serverUrl: SERVER_URL, 
+            downloadUrl: downloadUrl 
+          },
+          (response) => {
+            resolve(response);
+          }
+        );
       });
 
-      if (!response.ok) {
-        throw new Error(`服务器响应错误: ${response.status}`);
+      if (!result.success) {
+        throw new Error(result.error || '文档重写失败');
       }
 
-      // 处理流式响应
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      // 处理响应数据
+      const data = result.data;
+      const lines = data.split('\n');
       let markdown = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.substring(6));
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const parsedData = JSON.parse(line.substring(6));
             
-            if (data.type === 'chunk') {
+            if (parsedData.type === 'chunk') {
               // 实时更新进度
-              markdown += data.content;
+              markdown += parsedData.content;
               this.updateRewriteProgress(`已生成 ${markdown.length} 字符...`);
               this.updateRewriteResult(markdown);
-            } else if (data.type === 'complete') {
+            } else if (parsedData.type === 'complete') {
               // 生成完成
-              markdown = data.result.content;
+              markdown = parsedData.result.content;
               this.updateRewriteStatus('✓ 文档重写成功！', 'success');
               this.updateRewriteProgress('重写完成');
               this.updateRewriteResult(markdown);
@@ -311,11 +321,18 @@ class ExportMarkdownComponent extends BaseComponent {
               } catch (clipboardError) {
                 console.warn('无法复制到剪贴板:', clipboardError);
               }
-            } else if (data.type === 'error') {
-              throw new Error(data.error);
+            } else if (parsedData.type === 'error') {
+              throw new Error(parsedData.error);
             }
+          } catch (jsonError) {
+            console.warn('解析响应数据失败:', jsonError);
           }
         }
+      }
+
+      // 如果没有处理任何数据，显示错误信息
+      if (!markdown) {
+        throw new Error('无法解析服务器响应数据');
       }
 
     } catch (error) {
