@@ -1,9 +1,13 @@
 /**
- * 测试内容拼接逻辑
- * 用于验证重写后的markdown与保留内容的拼接结果
+ * 内容合并工具
+ * 用于提取和合并需要保留的内容
  */
 
-// 模拟提取保留内容的函数
+/**
+ * 提取需要保留的内容
+ * @param {string} originalMarkdown - 原始markdown内容
+ * @returns {string} 提取的保留内容
+ */
 function extractPreservedContent(originalMarkdown) {
   let videoMarkdown = '';
   let fullscreenMarkdown = '';
@@ -11,7 +15,6 @@ function extractPreservedContent(originalMarkdown) {
 
   // 1. 提取操作视频的链接markdown
   console.log('开始提取操作视频的链接markdown');
-  // 匹配完整的markdown链接格式，包含操作视频文本
   const videoLinkRegex = /\[操作视频\]\([^)]+\)/g;
   let match;
   let videoLinksFound = 0;
@@ -24,7 +27,6 @@ function extractPreservedContent(originalMarkdown) {
 
   // 2. 提取全屏打开Demo的示例链接markdown
   console.log('开始提取全屏打开Demo的示例链接markdown');
-  // 匹配完整的markdown链接格式，包含全屏打开文本
   const demoLinkRegex = /\[全屏打开\]\([^)]+\)/g;
   let demoLinksFound = 0;
   while ((match = demoLinkRegex.exec(originalMarkdown)) !== null) {
@@ -50,7 +52,7 @@ function extractPreservedContent(originalMarkdown) {
   const uniqueLines = [...new Set(lines)];
   fullscreenMarkdown = uniqueLines.join('\n') + '\n\n';
 
-  // 3. 提取jscodemineblock
+  // 4. 提取jscodemineblock
   console.log('开始提取jscodemineblock');
   const codemineBlockRegex = /\$\$codemineBlock[\s\S]*?\$\$/g;
   let codemineBlocksFound = 0;
@@ -60,7 +62,7 @@ function extractPreservedContent(originalMarkdown) {
     codemineBlocksFound++;
   }
   console.log('jscodemineblock提取完成，共找到:', codemineBlocksFound, '个');
-  
+
   // 组合保留内容
   let preservedContent = videoMarkdown + fullscreenMarkdown + codemineBlockMarkdown;
   console.log('最终提取的保留内容长度:', preservedContent.length);
@@ -69,7 +71,12 @@ function extractPreservedContent(originalMarkdown) {
   return preservedContent;
 }
 
-// 模拟拼接函数
+/**
+ * 合并内容
+ * @param {string} rewrittenMarkdown - 重写后的markdown内容
+ * @param {string} originalMarkdown - 原始markdown内容
+ * @returns {string} 合并后的内容
+ */
 function mergeContent(rewrittenMarkdown, originalMarkdown) {
   // 提取保留内容
   const preservedContent = extractPreservedContent(originalMarkdown);
@@ -83,42 +90,21 @@ function mergeContent(rewrittenMarkdown, originalMarkdown) {
   return mergedContent;
 }
 
-// 测试函数
-function testContentMerge() {
-  // 测试数据 - 用户将在此处填充
-  const rewrittenMarkdown = ''; // 重写好的markdown
-  const originalMarkdown = ''; // 文章原有的markdown
-  
-  console.log('=== 开始测试内容拼接 ===');
-  console.log('重写后的markdown长度:', rewrittenMarkdown.length);
-  console.log('原文章markdown长度:', originalMarkdown.length);
-  
-  // 执行拼接
-  const mergedContent = mergeContent(rewrittenMarkdown, originalMarkdown);
-  
-  console.log('=== 拼接结果 ===');
-  console.log('拼接后markdown长度:', mergedContent.length);
-  console.log('拼接后markdown内容:', mergedContent);
-  
-  // 显示结果
-  alert(`拼接结果长度: ${mergedContent.length}\n\n拼接结果:\n${mergedContent}`);
-  
-  return mergedContent;
-}
-
-// 暴露测试函数到全局，方便在浏览器中调用
-if (typeof window !== 'undefined') {
-  window.testContentMerge = testContentMerge;
-  window.extractPreservedContent = extractPreservedContent;
-  window.mergeContent = mergeContent;
-  console.log('测试函数已暴露到全局，可通过调用 testContentMerge() 来执行测试');
-}
-
-// 导出测试函数，方便在其他测试中使用
+// 导出函数，支持 CommonJS 和 ES6 模块系统
 if (typeof module !== 'undefined' && module.exports) {
+  // CommonJS 模块导出
   module.exports = {
-    testContentMerge,
     extractPreservedContent,
     mergeContent
   };
+} else if (typeof window !== 'undefined') {
+  // 浏览器环境导出
+  window.contentMerger = {
+    extractPreservedContent,
+    mergeContent
+  };
+} else if (typeof exports !== 'undefined') {
+  // ES6 模块导出
+  exports.extractPreservedContent = extractPreservedContent;
+  exports.mergeContent = mergeContent;
 }

@@ -2,6 +2,9 @@ import BaseComponent from '../base/BaseComponent.js';
 import DocsAPI from '../../services/api.js';
 import URLUtils from '../../services/urlUtils.js';
 
+// 导入内容合并工具
+const { extractPreservedContent, mergeContent } = require('../../../utils/contentMerger.js');
+
 class ExportMarkdownComponent extends BaseComponent {
   constructor(progressBar) {
     super(progressBar);
@@ -337,11 +340,11 @@ class ExportMarkdownComponent extends BaseComponent {
 
       // 获取当前页面需要保留的内容
       const currentTab = await this.getCurrentTab();
-      const preservedContent = await this.getPreservedContent(currentTab.id);
+      const originalMarkdown = await this.getOriginalMarkdown(currentTab.id);
       
       // 拼接保留的内容到重写后的markdown末尾
-      if (preservedContent) {
-        markdown += '\n\n' + preservedContent;
+      if (originalMarkdown) {
+        markdown = mergeContent(markdown, originalMarkdown);
         this.updateRewriteResult(markdown);
       }
 
@@ -373,8 +376,8 @@ class ExportMarkdownComponent extends BaseComponent {
     });
   }
 
-  // 获取当前页面需要保留的内容
-  async getPreservedContent(tabId) {
+  // 获取当前页面的原始markdown内容
+  async getOriginalMarkdown(tabId) {
     return new Promise((resolve) => {
       chrome.scripting.executeScript(
         {
@@ -393,76 +396,8 @@ class ExportMarkdownComponent extends BaseComponent {
             }
 
             const currentMarkdown = getCurrentMarkdown();
-            if (!currentMarkdown) {
-              return '';
-            }
-
-            // 提取需要保留的内容
-            let videoMarkdown = '';
-            let fullscreenMarkdown = '';
-            let codemineBlockMarkdown = '';
-            console.log('开始提取需要保留的内容');
-            console.log('当前markdown内容长度:', currentMarkdown.length);
-            console.log('当前markdown内容前500字符:', currentMarkdown.substring(0, 500));
-
-            // 1. 提取操作视频的链接markdown
-            console.log('开始提取操作视频的链接markdown');
-            // 匹配完整的markdown链接格式，包含操作视频文本
-            const videoLinkRegex = /\[操作视频\]\([^)]+\)/g;
-            let match;
-            let videoLinksFound = 0;
-            while ((match = videoLinkRegex.exec(currentMarkdown)) !== null) {
-              console.log('找到视频链接markdown:', match[0]);
-              videoMarkdown += match[0] + '\n\n';
-              videoLinksFound++;
-            }
-            console.log('视频链接markdown提取完成，共找到:', videoLinksFound, '个');
-
-            // 2. 提取全屏打开Demo的示例链接markdown
-            console.log('开始提取全屏打开Demo的示例链接markdown');
-            // 匹配完整的markdown链接格式，包含全屏打开文本
-            const demoLinkRegex = /\[全屏打开\]\([^)]+\)/g;
-            let demoLinksFound = 0;
-            while ((match = demoLinkRegex.exec(currentMarkdown)) !== null) {
-              console.log('找到全屏Demo链接markdown:', match[0]);
-              fullscreenMarkdown += match[0] + '\n\n';
-              demoLinksFound++;
-            }
-            console.log('全屏Demo链接markdown提取完成，共找到:', demoLinksFound, '个');
-
-            // 3. 提取包含全屏打开的整行
-            console.log('开始提取包含全屏打开的整行');
-            const fullscreenLineRegex = /^.*\[全屏打开\]\([^)]+\).*$/gm;
-            let fullscreenLinesFound = 0;
-            while ((match = fullscreenLineRegex.exec(currentMarkdown)) !== null) {
-              console.log('找到包含全屏打开的整行:', match[0]);
-              fullscreenMarkdown += match[0] + '\n\n';
-              fullscreenLinesFound++;
-            }
-            console.log('包含全屏打开的整行提取完成，共找到:', fullscreenLinesFound, '个');
-
-            // 去重，避免重复添加
-            const lines = fullscreenMarkdown.trim().split('\n');
-            const uniqueLines = [...new Set(lines)];
-            fullscreenMarkdown = uniqueLines.join('\n') + '\n\n';
-
-            // 3. 提取jscodemineblock
-            console.log('开始提取jscodemineblock');
-            const codemineBlockRegex = /\$\$codemineBlock[\s\S]*?\$\$/g;
-            let codemineBlocksFound = 0;
-            while ((match = codemineBlockRegex.exec(currentMarkdown)) !== null) {
-              console.log('找到jscodemineblock，长度:', match[0].length);
-              codemineBlockMarkdown += match[0] + '\n\n';
-              codemineBlocksFound++;
-            }
-            console.log('jscodemineblock提取完成，共找到:', codemineBlocksFound, '个');
-            
-            // 组合保留内容
-            let preservedContent = videoMarkdown + fullscreenMarkdown + codemineBlockMarkdown;
-            console.log('最终提取的保留内容长度:', preservedContent.length);
-            console.log('最终提取的保留内容前500字符:', preservedContent.substring(0, 500));
-
-            return preservedContent;
+            console.log('获取到原始markdown内容，长度:', currentMarkdown.length);
+            return currentMarkdown;
           }
         },
         (results) => {
@@ -474,6 +409,15 @@ class ExportMarkdownComponent extends BaseComponent {
         }
       );
     });
+  }
+
+  // 获取当前页面需要保留的内容（用于其他可能的用途）
+  async getPreservedContent(tabId) {
+    const originalMarkdown = await this.getOriginalMarkdown(tabId);
+    if (!originalMarkdown) {
+      return '';
+    }
+    return extractPreservedContent(originalMarkdown);
   }
 
   // 将markdown内容写回到编辑器中
