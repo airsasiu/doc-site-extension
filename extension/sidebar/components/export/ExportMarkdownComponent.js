@@ -21,6 +21,7 @@ class ExportMarkdownComponent extends BaseComponent {
       <div class="export-tabs">
         <button class="export-tab-btn active" data-tab="export-markdown">导出 Markdown</button>
         <button class="export-tab-btn" data-tab="rewrite-markdown">重写文档</button>
+        <button class="export-tab-btn" data-tab="export-params">批量导出参数</button>
         <button class="export-tab-btn" data-tab="import-markdown">导入 Markdown</button>
       </div>
       
@@ -62,6 +63,10 @@ class ExportMarkdownComponent extends BaseComponent {
                 <button class="analyze-btn" id="analyze-jscodemine-btn">从当前页面分析 jscodemine 链接</button>
                 <label>分析链接</label>
               </div>
+              <div class="rewrite-option">
+                <input type="checkbox" id="rewrite-force" checked>
+                <label for="rewrite-force">强制重写（清除缓存）</label>
+              </div>
             </div>
           </div>
           <div class="form-group">
@@ -86,6 +91,35 @@ class ExportMarkdownComponent extends BaseComponent {
             <label>重写结果:</label>
             <div class="rewrite-result" id="rewrite-result">
               <p>无结果</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 批量导出参数选项卡 -->
+        <div class="export-tab-content" id="export-params-tab">
+          <div class="form-group">
+            <label>导出设置:</label>
+            <div class="export-params-options">
+              <div class="export-params-option">
+                <input type="checkbox" id="export-params-include-jscodemine" checked>
+                <label for="export-params-include-jscodemine">包含 jscodemine 链接</label>
+              </div>
+              <div class="export-params-option">
+                <input type="checkbox" id="export-params-include-metadata" checked>
+                <label for="export-params-include-metadata">包含文档元数据</label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>导出状态:</label>
+            <div class="export-params-status" id="export-params-status">
+              <p>准备就绪</p>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>导出进度:</label>
+            <div class="export-params-progress" id="export-params-progress">
+              <p>等待开始</p>
             </div>
           </div>
         </div>
@@ -115,6 +149,7 @@ class ExportMarkdownComponent extends BaseComponent {
         <button class="export-confirm-btn" id="export-action-btn">开始导出</button>
         <button class="export-confirm-btn" id="export-toc-btn">下载 TOC</button>
         <button class="export-confirm-btn" id="rewrite-action-btn">开始重写</button>
+        <button class="export-confirm-btn" id="export-params-action-btn">批量导出参数</button>
         <button class="import-confirm-btn" id="import-action-btn">开始导入</button>
       </div>
     `;
@@ -182,6 +217,12 @@ class ExportMarkdownComponent extends BaseComponent {
     const importBtn = this.container.querySelector('#import-action-btn');
     if (importBtn) {
       importBtn.addEventListener('click', () => this.handleImport());
+    }
+    
+    // 绑定批量导出参数按钮事件
+    const exportParamsBtn = this.container.querySelector('#export-params-action-btn');
+    if (exportParamsBtn) {
+      exportParamsBtn.addEventListener('click', () => this.handleExportParams());
     }
   }
 
@@ -263,6 +304,9 @@ class ExportMarkdownComponent extends BaseComponent {
         }
       }
 
+      // 获取强制重写选项
+      const forceRewrite = this.container.querySelector('#rewrite-force').checked;
+
       // 获取Node服务器地址
       const config = await this.getConfig();
       const SERVER_URL = config.nodeServerUrl;
@@ -270,9 +314,50 @@ class ExportMarkdownComponent extends BaseComponent {
         throw new Error('请在配置页面设置Node服务器地址');
       }
 
-      // 更新状态
-      this.updateRewriteStatus('正在重写文档...', 'info');
-      this.updateRewriteProgress('开始重写文档...');
+      // 如果强制重写，先清除缓存
+      if (forceRewrite) {
+        this.updateRewriteStatus('正在清除缓存...', 'info');
+        this.updateRewriteProgress('清除缓存中...');
+        
+        try {
+          // 计算缓存键（使用下载URL的SHA256哈希）
+          const cacheKey = await this.generateCacheKey(downloadUrl);
+          
+          // 构建缓存清理URL
+          const cacheUrl = `${SERVER_URL}/api/cache/${cacheKey}`;
+          
+          // 发送清除缓存请求
+          const cacheResult = await new Promise((resolve) => {
+            chrome.runtime.sendMessage(
+              { 
+                type: 'clearCache', 
+                cacheUrl: cacheUrl 
+              },
+              (response) => {
+                resolve(response);
+              }
+            );
+          });
+          
+          if (cacheResult && cacheResult.success) {
+            this.updateRewriteStatus('缓存清除成功，开始重写文档...', 'info');
+            this.updateRewriteProgress('缓存清除成功，开始重写...');
+          } else {
+            console.warn('缓存清除失败或无响应，继续执行重写');
+            this.updateRewriteStatus('缓存清除失败，继续重写文档...', 'info');
+            this.updateRewriteProgress('缓存清除失败，继续重写...');
+          }
+        } catch (cacheError) {
+          console.warn('清除缓存时出错，继续执行重写:', cacheError);
+          this.updateRewriteStatus('清除缓存时出错，继续重写文档...', 'info');
+          this.updateRewriteProgress('清除缓存时出错，继续重写...');
+        }
+      } else {
+        // 更新状态
+        this.updateRewriteStatus('正在重写文档...', 'info');
+        this.updateRewriteProgress('开始重写文档...');
+      }
+      
       this.updateRewriteResult('无结果');
 
       // 通过 background script 发送请求，避免 CORS 错误
@@ -747,6 +832,148 @@ class ExportMarkdownComponent extends BaseComponent {
     }
   }
 
+  // 更新导出参数状态
+  updateExportParamsStatus(message, type = 'info') {
+    const statusDiv = this.container.querySelector('#export-params-status');
+    if (statusDiv) {
+      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+    }
+  }
+
+  // 更新导出参数进度
+  updateExportParamsProgress(message) {
+    const progressDiv = this.container.querySelector('#export-params-progress');
+    if (progressDiv) {
+      progressDiv.innerHTML = `<p>${message}</p>`;
+    }
+  }
+
+  // 处理批量导出参数操作
+  async handleExportParams() {
+    try {
+      // 禁用批量导出参数按钮
+      const exportParamsBtn = this.container.querySelector('#export-params-action-btn');
+      if (exportParamsBtn) {
+        exportParamsBtn.disabled = true;
+        exportParamsBtn.textContent = '导出中...';
+      }
+
+      // 获取导出选项
+      const includeJscodemine = this.container.querySelector('#export-params-include-jscodemine').checked;
+      const includeMetadata = this.container.querySelector('#export-params-include-metadata').checked;
+
+      // 更新状态
+      this.updateExportParamsStatus('正在准备导出参数...', 'info');
+      this.updateExportParamsProgress('开始收集文档参数...');
+
+      // 调用导出参数方法
+      await this.exportRewriteParams(includeJscodemine, includeMetadata);
+
+      // 显示成功消息
+      this.updateExportParamsStatus('导出参数完成！', 'success');
+      this.updateExportParamsProgress('导出参数完成');
+      this.showStatus('批量导出参数完成', 'success');
+    } catch (error) {
+      console.error('导出参数失败:', error);
+      this.updateExportParamsStatus(`导出失败: ${error.message}`, 'error');
+      this.updateExportParamsProgress('导出失败');
+      this.showError(`导出参数失败: ${error.message}`);
+    } finally {
+      // 启用批量导出参数按钮
+      const exportParamsBtn = this.container.querySelector('#export-params-action-btn');
+      if (exportParamsBtn) {
+        exportParamsBtn.disabled = false;
+        exportParamsBtn.textContent = '批量导出参数';
+      }
+    }
+  }
+
+  // 导出重写文档参数
+  async exportRewriteParams(includeJscodemine, includeMetadata) {
+    let paramsData = [];
+    let processedCount = 0;
+    let totalCount = 0;
+    
+    // 获取TOC数据以计算总文档数
+    const tocData = await this.getTOCData();
+    totalCount = this.countTocItems(tocData);
+    
+    // 使用 BaseComponent 的 processDocuments 方法处理所有文档
+    await this.processDocuments(async (docData) => {
+      const { content, item } = docData;
+      
+      if (!content || !content.markdownContent) {
+        console.warn(`跳过无内容的文档: ${item.text}`);
+        processedCount++;
+        this.updateExportParamsProgress(`处理中... ${processedCount}/${totalCount}`);
+        return;
+      }
+
+      // 构建文档参数对象
+      const docParams = {
+        id: item.tocItemId || item.id,
+        title: item.text,
+        path: item.documentPath || '',
+        metadata: includeMetadata ? {
+          level: item.level || 0,
+          isFolder: item.isFolder || false,
+          hasChildren: item.children && item.children.length > 0
+        } : {}
+      };
+
+      // 如果需要包含jscodemine链接，提取链接
+      if (includeJscodemine) {
+        const markdown = content.markdownContent;
+        const jscodemineLinks = this.extractJscodemineLinks(markdown);
+        docParams.jscodemineLinks = jscodemineLinks;
+      }
+
+      // 添加到参数数据数组
+      paramsData.push(docParams);
+      processedCount++;
+      this.updateExportParamsProgress(`处理中... ${processedCount}/${totalCount}`);
+    });
+
+    // 如果没有处理任何数据，显示错误信息
+    if (paramsData.length === 0) {
+      throw new Error('没有找到可导出的文档参数');
+    }
+
+    // 生成文件名
+    const fileName = `rewrite-params-${Date.now()}.json`;
+
+    // 转换为JSON格式
+    const paramsJson = JSON.stringify(paramsData, null, 2);
+
+    // 下载文件
+    this.downloadFile(fileName, paramsJson);
+  }
+
+  // 计算TOC中的项目数量
+  countTocItems(tocData) {
+    let count = 0;
+    
+    function traverse(items) {
+      if (Array.isArray(items)) {
+        items.forEach(item => {
+          count++;
+          if (item.children && Array.isArray(item.children)) {
+            traverse(item.children);
+          }
+        });
+      } else if (typeof tocData === 'object' && tocData !== null) {
+        if (tocData.tocItemDrafts && Array.isArray(tocData.tocItemDrafts)) {
+          traverse(tocData.tocItemDrafts);
+        } else if (tocData.children && Array.isArray(tocData.children)) {
+          traverse(tocData.children);
+        }
+      }
+    }
+    
+    traverse(tocData.tocItemDrafts || tocData.children || []);
+    return count;
+  }
+
   // 处理导出操作
   async handleExport() {
     try {
@@ -885,6 +1112,28 @@ class ExportMarkdownComponent extends BaseComponent {
     setTimeout(() => {
       URL.revokeObjectURL(url);
     }, 100);
+  }
+
+  // 生成缓存键（使用SHA256哈希）
+  async generateCacheKey(url) {
+    try {
+      // 编码URL
+      const encoder = new TextEncoder();
+      const data = encoder.encode(url);
+      
+      // 计算SHA256哈希
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      
+      // 转换为十六进制字符串
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      return hashHex;
+    } catch (error) {
+      console.error('生成缓存键失败:', error);
+      // 如果哈希生成失败，使用时间戳和随机数作为备选
+      return `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
   }
 }
 
