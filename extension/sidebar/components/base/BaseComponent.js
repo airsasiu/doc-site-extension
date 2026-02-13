@@ -31,6 +31,9 @@ class BaseComponent {
         throw new Error('无法获取产品ID，请确保在文档编辑页面使用此扩展');
       }
 
+      // 存储当前页面类型
+      this.currentPageType = pageType;
+
       // 显示获取文档列表状态
       this.showStatus('正在获取文档列表...', 'info');
       const versions = await DocsAPI.getDocVersions(productID);
@@ -83,7 +86,8 @@ class BaseComponent {
               await callback({
                 content: docContent,
                 item,
-                productID
+                productID,
+                pageType: this.currentPageType
               });
               stats.success++;
               return { success: true };
@@ -177,7 +181,8 @@ class BaseComponent {
   }
 
   getDocUrl(productID, docId, tocItemId) {
-    return `https://docs.grapecity.com.cn/manage/ArticleEdit/${productID}?tocItemId=${tocItemId}`;
+    const pageType = this.currentPageType || 'ArticleEdit';
+    return `https://docs.grapecity.com.cn/manage/${pageType}/${productID}?tocItemId=${tocItemId}`;
   }
 }
 
