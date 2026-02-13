@@ -324,4 +324,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     return true; // 保持消息通道打开
   }
+  
+  // 处理清除缓存的请求
+  if (request.type === 'clearCache') {
+    const { serverUrl, downloadUrl } = request;
+    
+    fetch(`${serverUrl}/api/cache/delete-by-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: downloadUrl })
+    })
+      .then(response => {
+        return response.json();
+      })
+      .then(data => {
+        // 无论响应状态如何，都认为清除缓存操作完成
+        // 因为即使缓存不存在或清除失败，也应该继续执行重写
+        sendResponse({ success: true, data: data });
+      })
+      .catch(error => {
+        console.error('清除缓存失败:', error);
+        // 即使出错，也返回成功，让重写操作继续执行
+        sendResponse({ success: true, message: '缓存清除请求已发送（可能失败）' });
+      });
+    return true; // 保持消息通道打开
+  }
 });

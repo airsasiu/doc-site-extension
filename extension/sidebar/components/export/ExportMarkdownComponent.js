@@ -22,7 +22,6 @@ class ExportMarkdownComponent extends BaseComponent {
         <button class="export-tab-btn active" data-tab="export-markdown">导出 Markdown</button>
         <button class="export-tab-btn" data-tab="rewrite-markdown">重写文档</button>
         <button class="export-tab-btn" data-tab="export-params">批量导出参数</button>
-        <button class="export-tab-btn" data-tab="import-markdown">导入 Markdown</button>
       </div>
       
       <!-- 导出操作内容 -->
@@ -123,25 +122,6 @@ class ExportMarkdownComponent extends BaseComponent {
             </div>
           </div>
         </div>
-        
-        <!-- 导入 Markdown 选项卡 -->
-        <div class="export-tab-content" id="import-markdown-tab">
-          <div class="form-group">
-            <label>导入设置:</label>
-            <div class="import-options">
-              <div class="import-option">
-                <input type="file" id="import-file" accept=".zip,.md">
-                <label for="import-file">选择文件 (ZIP或MD)</label>
-              </div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>导入状态:</label>
-            <div class="import-status" id="import-status">
-              <p>准备就绪</p>
-            </div>
-          </div>
-        </div>
       </div>
       
       <!-- 操作按钮 -->
@@ -150,7 +130,6 @@ class ExportMarkdownComponent extends BaseComponent {
         <button class="export-confirm-btn" id="export-toc-btn">下载 TOC</button>
         <button class="export-confirm-btn" id="rewrite-action-btn">开始重写</button>
         <button class="export-confirm-btn" id="export-params-action-btn">批量导出参数</button>
-        <button class="import-confirm-btn" id="import-action-btn">开始导入</button>
       </div>
     `;
     
@@ -213,12 +192,6 @@ class ExportMarkdownComponent extends BaseComponent {
       analyzeBtn.addEventListener('click', () => this.analyzeJscodemineLinks());
     }
     
-    // 绑定导入按钮事件
-    const importBtn = this.container.querySelector('#import-action-btn');
-    if (importBtn) {
-      importBtn.addEventListener('click', () => this.handleImport());
-    }
-    
     // 绑定批量导出参数按钮事件
     const exportParamsBtn = this.container.querySelector('#export-params-action-btn');
     if (exportParamsBtn) {
@@ -244,39 +217,6 @@ class ExportMarkdownComponent extends BaseComponent {
         document.getElementById(`${tabId}-tab`).classList.add('active');
       });
     });
-  }
-
-  // 处理导入操作
-  async handleImport() {
-    try {
-      // 禁用导入按钮
-      const importBtn = this.container.querySelector('.import-confirm-btn');
-      if (importBtn) {
-        importBtn.disabled = true;
-        importBtn.textContent = '导入中...';
-      }
-
-      // 更新状态
-      this.updateImportStatus('正在准备导入...', 'info');
-
-      // 这里可以添加导入逻辑
-      // 例如：读取文件、解析内容、上传到服务器等
-
-      // 显示成功消息
-      this.updateImportStatus('导入功能开发中...', 'info');
-      this.showStatus('导入功能开发中', 'info');
-    } catch (error) {
-      console.error('导入失败:', error);
-      this.updateImportStatus(`导入失败: ${error.message}`, 'error');
-      this.showError(`导入失败: ${error.message}`);
-    } finally {
-      // 启用导入按钮
-      const importBtn = this.container.querySelector('.import-confirm-btn');
-      if (importBtn) {
-        importBtn.disabled = false;
-        importBtn.textContent = '开始导入';
-      }
-    }
   }
 
   // 处理文档重写操作
@@ -320,18 +260,13 @@ class ExportMarkdownComponent extends BaseComponent {
         this.updateRewriteProgress('清除缓存中...');
         
         try {
-          // 计算缓存键（使用下载URL的SHA256哈希）
-          const cacheKey = await this.generateCacheKey(downloadUrl);
-          
-          // 构建缓存清理URL
-          const cacheUrl = `${SERVER_URL}/api/cache/${cacheKey}`;
-          
           // 发送清除缓存请求
           const cacheResult = await new Promise((resolve) => {
             chrome.runtime.sendMessage(
               { 
                 type: 'clearCache', 
-                cacheUrl: cacheUrl 
+                serverUrl: SERVER_URL,
+                downloadUrl: downloadUrl 
               },
               (response) => {
                 resolve(response);
@@ -808,14 +743,6 @@ class ExportMarkdownComponent extends BaseComponent {
     }
   }
 
-  // 更新导入状态
-  updateImportStatus(message, type = 'info') {
-    const statusDiv = this.container.querySelector('#import-status');
-    if (statusDiv) {
-      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
-    }
-  }
-
   // 更新TOC导出状态
   updateTOCExportStatus(message, type = 'info') {
     const statusDiv = this.container.querySelector('#toc-export-status');
@@ -1112,28 +1039,6 @@ class ExportMarkdownComponent extends BaseComponent {
     setTimeout(() => {
       URL.revokeObjectURL(url);
     }, 100);
-  }
-
-  // 生成缓存键（使用SHA256哈希）
-  async generateCacheKey(url) {
-    try {
-      // 编码URL
-      const encoder = new TextEncoder();
-      const data = encoder.encode(url);
-      
-      // 计算SHA256哈希
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      
-      // 转换为十六进制字符串
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      return hashHex;
-    } catch (error) {
-      console.error('生成缓存键失败:', error);
-      // 如果哈希生成失败，使用时间戳和随机数作为备选
-      return `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    }
   }
 }
 
