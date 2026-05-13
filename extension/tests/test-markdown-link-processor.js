@@ -1,5 +1,7 @@
 // 测试 Markdown 链接处理器功能
 async function testMarkdownLinkProcessor() {
+  let lastTocItemRequestUrl = null;
+
   // 模拟 window 对象
   if (typeof window === 'undefined') {
     global.window = {
@@ -12,8 +14,19 @@ async function testMarkdownLinkProcessor() {
   // 模拟 fetch 函数
   const originalFetch = global.fetch;
   global.fetch = async (url, options) => {
+    // 模拟 tocItem API
+    if (url.includes('/tocItem?documentPath=')) {
+      lastTocItemRequestUrl = url;
+      return {
+        ok: true,
+        json: async () => ({
+          tocItemId: 'test-toc-item-id'
+        })
+      };
+    }
+
     // 模拟版本信息 API
-    if (url.includes('/api/docversion/version/')) {
+    if (url.includes('/api/docversion/version/') && !url.includes('/tocItem')) {
       return {
         ok: true,
         json: async () => ({
@@ -34,16 +47,6 @@ async function testMarkdownLinkProcessor() {
           "apiRemarks": "GcExcel Java v9.0.0",
           "codemineCollectionId": null,
           "apiToCregex": null
-        })
-      };
-    }
-
-    // 模拟 tocItem API
-    if (url.includes('/tocItem?documentPath=')) {
-      return {
-        ok: true,
-        json: async () => ({
-          tocItemId: 'test-toc-item-id'
         })
       };
     }
@@ -105,6 +108,94 @@ async function testMarkdownLinkProcessor() {
     };
   }
 
+  function applyLinkRules(path, productType, linkRules) {
+    if (!linkRules || !linkRules[productType]) {
+      return path;
+    }
+
+    const rule = linkRules[productType];
+    if (rule.apiPathPattern && rule.replaceWith !== undefined) {
+      const regex = new RegExp(rule.apiPathPattern, 'i');
+      return path.replace(regex, rule.replaceWith);
+    }
+
+    return path;
+  }
+
+  function getRootBasePath(rootPath) {
+    if (!rootPath) {
+      return '';
+    }
+
+    const trimmedRoot = rootPath.endsWith('/') ? rootPath.slice(0, -1) : rootPath;
+    const parts = trimmedRoot.split('/');
+    const lastSegment = parts[parts.length - 1];
+
+    if (/^(v?\d+(?:\.\d+)*|latest)$/i.test(lastSegment)) {
+      return `${parts.slice(0, -1).join('/')}/`;
+    }
+
+    return `${trimmedRoot}/`;
+  }
+
+  function detectProductType(path, versionInfo) {
+    if (versionInfo && versionInfo.apiRootPath) {
+      if (versionInfo.apiRootPath.includes('/java/')) {
+        return 'java';
+      } else if (versionInfo.apiRootPath.includes('/js/') || versionInfo.apiRootPath.includes('/javascript/')) {
+        return 'js';
+      } else if (/(\/csharp\/|\/dotnet\/|-net\/)/i.test(versionInfo.apiRootPath)) {
+        return 'csharp';
+      }
+    }
+
+    if (path.includes('/java/')) {
+      return 'java';
+    } else if (path.includes('/js/') || path.includes('/javascript/')) {
+      return 'js';
+    } else if (/(\/csharp\/|\/dotnet\/|-net\/)/i.test(path)) {
+      return 'csharp';
+    }
+
+    return 'java';
+  }
+
+  function normalizePathWithRoot(path, rootPath, rootType) {
+    if (!path || !rootPath) {
+      return path;
+    }
+
+    if (path.startsWith(rootPath)) {
+      return path;
+    }
+
+    const basePath = getRootBasePath(rootPath);
+    if (basePath && path.startsWith(basePath)) {
+      return rootPath + path.substring(basePath.length);
+    }
+
+    let normalizedPath = path;
+    const shortPrefix = rootType === 'api' ? '/api/' : '/docs/';
+
+    if (normalizedPath.startsWith(shortPrefix)) {
+      normalizedPath = normalizedPath.substring(shortPrefix.length);
+      return rootPath + normalizedPath;
+    }
+
+    if (rootType === 'api') {
+      const apiPathMatch = normalizedPath.match(/\/(classes|interfaces|enums|modules|namespaces)\//i);
+      if (apiPathMatch && apiPathMatch.index > 0) {
+        normalizedPath = normalizedPath.substring(apiPathMatch.index);
+      }
+    }
+
+    if (normalizedPath.startsWith('/developer/')) {
+      return normalizedPath;
+    }
+
+    return rootPath + normalizedPath.replace(/^\//, '');
+  }
+
   // 测试核心函数：processGrapeCityLink
   async function processGrapeCityLink(url, text, productId, versionInfo) {
     try {
@@ -145,64 +236,40 @@ async function testMarkdownLinkProcessor() {
       if (isApiDoc && versionInfo.apiRootPath) {
         // API 文档处理
         const apiRoot = versionInfo.apiRootPath;
-        if (originalPath.startsWith(apiRoot)) {
-          // 绝对路径且匹配 apiRootPath，提取相对于 apiRootPath 的路径
-          documentPath = originalPath.substring(apiRoot.length) || '/';
-        } else if (originalPath.startsWith('/')) {
-          // 相对地址，检查是否与 apiRootPath 的结构匹配
-          // 提取 apiRootPath 中的基础路径部分（不包含版本号）
-          const apiRootParts = apiRoot.split('/').filter(Boolean);
-          const originalParts = originalPath.split('/').filter(Boolean);
-          
-          // 如果相对地址的结构与 apiRootPath 匹配（例如都包含 /api/）
-          if (apiRootParts.includes('api') && originalParts.includes('api')) {
-            // 提取 api 之后的路径作为 documentPath
-            const apiIndexOriginal = originalParts.indexOf('api');
-            if (apiIndexOriginal !== -1 && apiIndexOriginal < originalParts.length - 1) {
-              documentPath = '/' + originalParts.slice(apiIndexOriginal + 1).join('/');
-            } else {
-              documentPath = originalPath;
+        const apiBasePath = getRootBasePath(apiRoot);
+        const config = {
+          linkRules: {
+            "java": {
+              "apiPathPattern": "/document-solutions/.*?/api/online/",
+              "replaceWith": "/"
+            },
+            "js": {
+              "apiPathPattern": "/api/",
+              "replaceWith": "/"
+            },
+            "csharp": {
+              "apiPathPattern": "/api/",
+              "replaceWith": "/"
             }
-          } else {
-            // 结构不匹配，直接使用原始路径
-            documentPath = originalPath;
           }
-        } else {
-          // 其他情况，直接使用原始路径
-          documentPath = originalPath;
-        }
+        };
+        const isRootedApiPath = originalPath.startsWith(apiRoot) || (apiBasePath && originalPath.startsWith(apiBasePath));
+        const productType = detectProductType(originalPath, versionInfo);
+        const processedPath = isRootedApiPath
+          ? originalPath
+          : applyLinkRules(originalPath, productType, config.linkRules);
+        documentPath = normalizePathWithRoot(processedPath, apiRoot, 'api');
       } else if (!isApiDoc && versionInfo.rootPath) {
         // 普通文档处理
         const docRoot = versionInfo.rootPath;
         if (originalPath.startsWith(docRoot)) {
-          // 绝对路径且匹配 rootPath，提取相对于 rootPath 的路径
-          documentPath = originalPath.substring(docRoot.length) || '/';
-        } else if (originalPath.startsWith('/')) {
-          // 相对地址，检查是否与 rootPath 的结构匹配
-          const rootParts = docRoot.split('/').filter(Boolean);
-          const originalParts = originalPath.split('/').filter(Boolean);
-          
-          // 提取 rootPath 中的基础路径部分（不包含版本号）
-          // 寻找第一个可能的版本号位置
-          let basePathParts = [];
-          for (const part of rootParts) {
-            if (/^(v?\d+(?:\.\d+)*|latest)$/i.test(part)) {
-              break; // 遇到版本号，停止提取
-            }
-            basePathParts.push(part);
-          }
-          
-          // 检查相对地址是否包含基础路径
-          const hasMatchingBase = basePathParts.length > 0 && 
-                                 originalParts.slice(0, basePathParts.length).join('/') === basePathParts.join('/');
-          
-          if (hasMatchingBase) {
-            // 提取基础路径之后的路径作为 documentPath
-            documentPath = '/' + originalParts.slice(basePathParts.length).join('/');
-          } else {
-            // 没有匹配的基础路径，直接使用原始路径
+          if (isExternalUrl) {
             documentPath = originalPath;
+          } else {
+            documentPath = originalPath.substring(docRoot.length) || '/';
           }
+        } else if (originalPath.startsWith('/')) {
+          documentPath = normalizePathWithRoot(originalPath, docRoot, 'docs');
         } else {
           // 其他情况，直接使用原始路径
           documentPath = originalPath;
@@ -212,6 +279,8 @@ async function testMarkdownLinkProcessor() {
         documentPath = originalPath;
       }
       
+      await fetch(`https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productId}/tocItem?documentPath=${encodeURIComponent(documentPath)}`);
+
       // 模拟 API 调用，返回固定的 tocItemId
       const tocItemId = 'test-toc-item-id';
       
@@ -234,35 +303,35 @@ async function testMarkdownLinkProcessor() {
       name: '外部 API 文档链接',
       url: 'https://docs.grapecity.com.cn/developer/grapecitydocuments/excel-java/api/v9.0/online/com/grapecity/documents/excel/IRange.html#copy',
       text: 'IRange.Copy',
-      expectedPath: '/online/com/grapecity/documents/excel/IRange.html',
+      expectedPath: '/developer/grapecitydocuments/excel-java/api/v9.0/online/com/grapecity/documents/excel/IRange.html',
       shouldProcess: true
     },
     {
       name: '用户报告的相对地址 API 链接',
       url: '/document-solutions/java-excel-api/api/online/com/grapecity/documents/excel/IRange.html#copy',
       text: 'Range.Copy',
-      expectedPath: '/online/com/grapecity/documents/excel/IRange.html',
+      expectedPath: '/developer/grapecitydocuments/excel-java/api/v9.0/com/grapecity/documents/excel/IRange.html',
       shouldProcess: true
     },
     {
       name: '外部普通文档链接',
       url: 'https://docs.grapecity.com.cn/developer/grapecitydocuments/excel-java/docs/v9.0/online/overview.html',
       text: 'Overview',
-      expectedPath: '/online/overview.html',
+      expectedPath: '/developer/grapecitydocuments/excel-java/docs/v9.0/online/overview.html',
       shouldProcess: true
     },
     {
       name: '相对地址普通文档链接',
       url: '/developer/grapecitydocuments/excel-java/docs/online/overview.html',
       text: 'Overview',
-      expectedPath: '/online/overview.html',
+      expectedPath: '/developer/grapecitydocuments/excel-java/docs/v9.0/online/overview.html',
       shouldProcess: true
     },
     {
       name: '不包含版本号的相对 API 链接',
       url: '/api/online/com/grapecity/documents/excel/IWorkbook.html',
       text: 'IWorkbook',
-      expectedPath: '/online/com/grapecity/documents/excel/IWorkbook.html',
+      expectedPath: '/developer/grapecitydocuments/excel-java/api/v9.0/online/com/grapecity/documents/excel/IWorkbook.html',
       shouldProcess: true
     },
     {
@@ -276,8 +345,19 @@ async function testMarkdownLinkProcessor() {
       name: '带锚点的相对 API 链接',
       url: '/api/online/com/grapecity/documents/excel/IRange.html#paste',
       text: 'IRange.Paste',
-      expectedPath: '/online/com/grapecity/documents/excel/IRange.html',
+      expectedPath: '/developer/grapecitydocuments/excel-java/api/v9.0/online/com/grapecity/documents/excel/IRange.html',
       shouldProcess: true
+    },
+    {
+      name: '外部 .NET API 完整链接不应重复拼接根路径',
+      url: 'https://docs.grapecity.com.cn/developer/grapecitydocuments/excel-net/api/V9.1/GcDocs.Excel/GrapeCity.Documents.Excel.CalcError.html',
+      text: 'CalcError',
+      expectedPath: '/developer/grapecitydocuments/excel-net/api/V9.1/GcDocs.Excel/GrapeCity.Documents.Excel.CalcError.html',
+      shouldProcess: true,
+      versionInfo: {
+        rootPath: '/developer/grapecitydocuments/excel-net/docs/V9.1/',
+        apiRootPath: '/developer/grapecitydocuments/excel-net/api/V9.1/'
+      }
     }
   ];
 
@@ -292,16 +372,26 @@ async function testMarkdownLinkProcessor() {
   for (let i = 0; i < testCases.length; i++) {
     const testCase = testCases[i];
     try {
-      const result = await processGrapeCityLink(testCase.url, testCase.text, productId, versionInfo);
+      const currentVersionInfo = testCase.versionInfo || versionInfo;
+      lastTocItemRequestUrl = null;
+      const result = await processGrapeCityLink(testCase.url, testCase.text, productId, currentVersionInfo);
       const passed = (testCase.shouldProcess && result !== null) || (!testCase.shouldProcess && result === null);
+      const requestedDocumentPath = lastTocItemRequestUrl
+        ? decodeURIComponent((lastTocItemRequestUrl.split('documentPath=')[1] || '').split('&')[0])
+        : null;
+      const pathPassed = testCase.expectedPath ? requestedDocumentPath === testCase.expectedPath : true;
       
       console.log(`测试用例 ${i + 1}: ${testCase.name}`);
-      console.log(`状态: ${passed ? '✅ 通过' : '❌ 失败'}`);
+      console.log(`状态: ${passed && pathPassed ? '✅ 通过' : '❌ 失败'}`);
       console.log(`URL: ${testCase.url}`);
       console.log(`预期处理: ${testCase.shouldProcess ? '是' : '否'}`);
       console.log(`实际结果: ${result || 'null'}`);
+      if (testCase.expectedPath) {
+        console.log(`预期 documentPath: ${testCase.expectedPath}`);
+        console.log(`实际 documentPath: ${requestedDocumentPath}`);
+      }
       
-      if (passed) {
+      if (passed && pathPassed) {
         passedCount++;
       }
     } catch (error) {

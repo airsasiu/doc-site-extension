@@ -1,24 +1,6 @@
 // 添加初始化日志
 console.log('Background script loaded');
 
-// 监听标签页加载完成事件，注入自动关闭侧边栏脚本
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // 当标签页加载完成时
-  if (changeInfo.status === 'complete' && tab.url && tab.url.includes('docs.grapecity.com.cn')) {
-    console.log('标签页加载完成，注入自动关闭侧边栏脚本:', tab.url);
-    try {
-      // 注入自动关闭侧边栏脚本
-      await chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        files: ['scripts/auto-close-sidebar.js']
-      });
-      console.log('自动关闭侧边栏脚本注入成功');
-    } catch (error) {
-      console.error('注入自动关闭侧边栏脚本失败:', error);
-    }
-  }
-});
-
 // 创建右键菜单
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -52,16 +34,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await chrome.sidePanel.open({ tabId: tab.id });
   } else if (info.menuItemId === "upload_selected_images") {
     try {
-      // 先注入工具脚本
+      // 先按顺序注入依赖脚本
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['scripts/utils.js']
-      });
-      
-      // 然后注入并执行 Markdown 链接处理脚本
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['scripts/markdown-link-processor.js']
+        files: [
+          'scripts/utils.js',
+          'scripts/shared-url-utils.js',
+          'scripts/markdown-link-processor.js'
+        ]
       });
       
       console.log('Markdown link processor script injected and executed');
@@ -170,16 +150,14 @@ chrome.commands.onCommand.addListener(async (command) => {
     console.log('Upload images command triggered');
     
     try {
-      // 先注入工具脚本
+      // 先按顺序注入依赖脚本
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
-        files: ['scripts/utils.js']
-      });
-      
-      // 然后注入并执行 Markdown 链接处理脚本
-      await chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
-        files: ['scripts/markdown-link-processor.js']
+        files: [
+          'scripts/utils.js',
+          'scripts/shared-url-utils.js',
+          'scripts/markdown-link-processor.js'
+        ]
       });
       
       console.log('Image upload script injected and executed');

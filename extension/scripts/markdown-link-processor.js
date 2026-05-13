@@ -1,13 +1,16 @@
-// 加载共享 URL 工具函数
-var script = document.createElement('script');
-script.src = chrome.runtime.getURL('scripts/shared-url-utils.js');
-document.head.appendChild(script);
+function ensureUrlHelpersLoaded() {
+  if (typeof getProductIdFromUrl !== 'function' || typeof getProductIdFromCurrentRootUrl !== 'function') {
+    throw new Error('共享 URL 工具未加载');
+  }
+}
 
 // 处理 Markdown 中的图片和链接
 (function() {
   console.log('Markdown link processor script loaded and executing');
   
   try {
+    ensureUrlHelpersLoaded();
+
     // 获取选中的文本
     const selection = window.getSelection();
     const selectedText = selection.toString();
@@ -185,7 +188,7 @@ function detectProductType(path, versionInfo) {
       return 'java';
     } else if (versionInfo.apiRootPath.includes('/js/') || versionInfo.apiRootPath.includes('/javascript/')) {
       return 'js';
-    } else if (versionInfo.apiRootPath.includes('/csharp/') || versionInfo.apiRootPath.includes('/dotnet/')) {
+    } else if (/(\/csharp\/|\/dotnet\/|-net\/)/i.test(versionInfo.apiRootPath)) {
       return 'csharp';
     }
   }
@@ -195,7 +198,7 @@ function detectProductType(path, versionInfo) {
     return 'java';
   } else if (path.includes('/js/') || path.includes('/javascript/')) {
     return 'js';
-  } else if (path.includes('/csharp/') || path.includes('/dotnet/')) {
+  } else if (/(\/csharp\/|\/dotnet\/|-net\/)/i.test(path)) {
     return 'csharp';
   }
   
@@ -216,6 +219,58 @@ function applyLinkRules(path, productType, linkRules) {
   }
   
   return path;
+}
+
+function getRootBasePath(rootPath) {
+  if (!rootPath) {
+    return '';
+  }
+
+  const trimmedRoot = rootPath.endsWith('/') ? rootPath.slice(0, -1) : rootPath;
+  const parts = trimmedRoot.split('/');
+  const lastSegment = parts[parts.length - 1];
+
+  if (/^(v?\d+(?:\.\d+)*|latest)$/i.test(lastSegment)) {
+    return `${parts.slice(0, -1).join('/')}/`;
+  }
+
+  return `${trimmedRoot}/`;
+}
+
+function normalizePathWithRoot(path, rootPath, rootType) {
+  if (!path || !rootPath) {
+    return path;
+  }
+
+  if (path.startsWith(rootPath)) {
+    return path;
+  }
+
+  const basePath = getRootBasePath(rootPath);
+  if (basePath && path.startsWith(basePath)) {
+    return rootPath + path.substring(basePath.length);
+  }
+
+  let normalizedPath = path;
+  const shortPrefix = rootType === 'api' ? '/api/' : '/docs/';
+
+  if (normalizedPath.startsWith(shortPrefix)) {
+    normalizedPath = normalizedPath.substring(shortPrefix.length);
+    return rootPath + normalizedPath;
+  }
+
+  if (rootType === 'api') {
+    const apiPathMatch = normalizedPath.match(/\/(classes|interfaces|enums|modules|namespaces)\//i);
+    if (apiPathMatch && apiPathMatch.index > 0) {
+      normalizedPath = normalizedPath.substring(apiPathMatch.index);
+    }
+  }
+
+  if (normalizedPath.startsWith('/developer/')) {
+    return normalizedPath;
+  }
+
+  return rootPath + normalizedPath.replace(/^\//, '');
 }
 
 // 处理 docs.grapecity.com.cn 开头的链接或相对地址链接
@@ -259,30 +314,21 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
     if (isApiDoc && versionInfo.apiRootPath) {
       // API 文档处理
       const apiRoot = versionInfo.apiRootPath;
+      const apiBasePath = getRootBasePath(apiRoot);
       
       // 处理路径，确保生成正确的 documentPath
       let processedPath = originalPath;
       
       // 1. 先应用链接处理规则
-      const config = await loadConfig();
-      const productType = detectProductType(processedPath, versionInfo);
-      processedPath = applyLinkRules(processedPath, productType, config.linkRules);
-      
-      // 2. 移除 /api/ 前缀（如果存在）
-      if (processedPath.startsWith('/api/')) {
-        processedPath = processedPath.replace(/^\/api\//, '/');
+      const isRootedApiPath = processedPath.startsWith(apiRoot) || (apiBasePath && processedPath.startsWith(apiBasePath));
+      if (!isRootedApiPath) {
+        const config = await loadConfig();
+        const productType = detectProductType(processedPath, versionInfo);
+        processedPath = applyLinkRules(processedPath, productType, config.linkRules);
       }
-      
-      // 3. 确保路径格式正确，避免重复的路径部分
-      // 提取主要路径部分，例如从 /spreadjs/help/api/classes/... 中提取 /classes/...
-      const apiPathMatch = processedPath.match(/\/(classes|interfaces|enums|modules|namespaces)\//i);
-      if (apiPathMatch && apiPathMatch.index > 0) {
-        // 保留从 classes/ 等开始的部分
-        processedPath = processedPath.substring(apiPathMatch.index);
-      }
-      
-      // 4. 使用 apiRootPath 拼接完整路径
-      documentPath = apiRoot + processedPath.replace(/^\//, '');
+
+      // 2. 规范化 API 路径，避免把已完整的路径再次拼接到 apiRootPath 后面
+      documentPath = normalizePathWithRoot(processedPath, apiRoot, 'api');
     } else if (!isApiDoc && versionInfo.rootPath) {
       // 普通文档处理
       const docRoot = versionInfo.rootPath;
@@ -301,14 +347,9 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
         const config = await loadConfig();
         const productType = detectProductType(originalPath, versionInfo);
         let processedPath = applyLinkRules(originalPath, productType, config.linkRules);
-        
-        // 2. 移除 /docs/ 前缀
-        if (processedPath.startsWith('/docs/')) {
-          processedPath = processedPath.replace(/^\/docs\//, '/');
-        }
-        
-        // 3. 使用 rootPath 拼接完整路径
-        documentPath = docRoot + processedPath.replace(/^\//, '');
+
+        // 2. 规范化普通文档路径，避免把已带基础路径的链接重复拼接到 rootPath 后面
+        documentPath = normalizePathWithRoot(processedPath, docRoot, 'docs');
       } else {
         // 其他情况，直接使用原始路径
         documentPath = originalPath;
@@ -331,8 +372,7 @@ async function processGrapeCityLink(url, text, productId, versionInfo) {
     }
     
     // 发送请求获取对应的 tocItem
-    // 直接使用documentPath，不进行完整的URL编码，因为服务器可能期望原始的路径格式
-    const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productId}/tocItem?documentPath=${documentPath}`);
+    const response = await fetch(`https://docs.grapecity.com.cn/documentsite/api/docversion/version/${productId}/tocItem?documentPath=${encodeURIComponent(documentPath)}`);
     
     if (!response.ok) {
       return null;
