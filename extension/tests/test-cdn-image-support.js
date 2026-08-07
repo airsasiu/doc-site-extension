@@ -119,6 +119,12 @@ if (getMimeTypeFromUrl(mesciusPngUrl) !== 'image/png') {
   throw new Error('Mescius CDN PNG MIME type must be determined from the URL pathname');
 }
 
+const gifMarkdown = `![demo.gif](${mesciusGifUrl})`;
+const gifOrigins = permissionContext.getImageOriginsFromMarkdown(gifMarkdown, 'https://docapp.example.com/editor');
+if (!Array.isArray(gifOrigins) || gifOrigins[0] !== 'https://cdn.mescius.io/*') {
+  throw new Error('GIF markdown must be recognized as an image link for host permission collection');
+}
+
 if (uploadResponseContext.isImageAlreadyProcessed(mesciusPngUrl)) {
   throw new Error('Mescius CDN document-site-files URLs must not be treated as already processed');
 }

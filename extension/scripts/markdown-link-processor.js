@@ -664,7 +664,12 @@ async function uploadImage(imageUrl, rootId, config = {}) {
       return uploadImageFromDataUrl(response, rootId, config, fetchImageUrl);
     }
 
-    return await uploadImageViaBackground(fetchImageUrl, rootId, config);
+    try {
+      return await uploadImageViaBackground(fetchImageUrl, rootId, config);
+    } catch (error) {
+      console.warn('后台上传失败，改用页面直传:', error);
+      return await uploadImageDirectly(fetchImageUrl, rootId, config);
+    }
   } catch (error) {
     console.error('上传图片时出错:', error);
     return null;
@@ -935,6 +940,44 @@ async function uploadImageViaBackground(imageUrl, rootId, config = {}) {
       reject(new Error(errorMessage));
     });
   });
+}
+
+async function uploadImageDirectly(imageUrl, rootId, config = {}) {
+  console.log('通过页面直接上传图片...', imageUrl);
+
+  const response = await fetch(imageUrl, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`获取图片失败: ${response.status}`);
+  }
+
+  const buffer = await response.arrayBuffer();
+  const mimeType = response.headers.get('content-type') || getMimeTypeFromUrl(imageUrl);
+  const blob = new Blob([buffer], { type: mimeType });
+  const filename = sanitizeFilename(getFilenameFromUrl(imageUrl));
+
+  const formData = new FormData();
+  formData.append('file', blob, filename);
+  if (rootId) {
+    formData.append('rootId', rootId);
+  }
+
+  const uploadResponse = await fetch(`${getDocApiUrl(config)}/document/upload`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include'
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`上传失败: ${uploadResponse.status}`);
+  }
+
+  const responseText = await uploadResponse.text();
+  const uploadedUrl = parseUploadResponse(responseText);
+  if (!uploadedUrl) {
+    throw new Error('上传成功但返回的数据无效');
+  }
+
+  return uploadedUrl;
 }
 
 // 获取当前文档的 rootId
