@@ -3,38 +3,90 @@ var script = document.createElement('script');
 script.src = chrome.runtime.getURL('scripts/shared-url-utils.js');
 document.head.appendChild(script);
 
+const TEXTS = {
+  cn: {
+    loaded: '文档 Markdown 复制脚本已加载并执行',
+    missingProductId: '无法从 URL 提取产品 ID',
+    missingSourceBaseUrl: '请先配置源文档基础 URL',
+    loadingMarkdown: '正在获取文档 Markdown 内容...',
+    copyAndWriteSuccess: '文档 Markdown 内容已复制到剪贴板并写入编辑框',
+    writeSuccess: '文档 Markdown 内容已成功写入编辑框',
+    copySuccess: '文档 Markdown 内容已复制到剪贴板',
+    fetchSuccess: '文档 Markdown 内容获取成功',
+    copyFailed: '复制到剪贴板失败',
+    writeFailed: '写入编辑框失败',
+    tocFailed: '获取 TOC 失败: {message}',
+    markdownFailed: '获取 Markdown 失败',
+    fetchFailed: '复制失败: {message}'
+  },
+  en: {
+    loaded: 'Document Markdown copy script loaded',
+    missingProductId: 'Unable to extract a product ID from the URL',
+    missingSourceBaseUrl: 'Please configure the source document base URL first',
+    loadingMarkdown: 'Fetching document Markdown content...',
+    copyAndWriteSuccess: 'Document Markdown content was copied to the clipboard and written into the editor',
+    writeSuccess: 'Document Markdown content was written into the editor',
+    copySuccess: 'Document Markdown content was copied to the clipboard',
+    fetchSuccess: 'Document Markdown content fetched successfully',
+    copyFailed: 'Clipboard copy failed',
+    writeFailed: 'Writing into the editor failed',
+    tocFailed: 'Failed to fetch TOC: {message}',
+    markdownFailed: 'Failed to fetch Markdown',
+    fetchFailed: 'Copy failed: {message}'
+  }
+};
+
+function normalizeLanguage(language) {
+  return String(language || '').toLowerCase().startsWith('en') ? 'en' : 'cn';
+}
+
+function formatMessage(template, params = {}) {
+  return String(template).replace(/\{(\w+)\}/g, (_, key) => {
+    const value = params[key];
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
+
+function t(language, key, params = {}) {
+  const template = TEXTS[language]?.[key] || TEXTS.cn[key] || key;
+  return formatMessage(template, params);
+}
+
 // 从配置的源地址复制 Markdown 到剪贴板
 (function() {
-  console.log('文档 Markdown 复制脚本已加载并执行');
+  console.log(TEXTS.cn.loaded);
 
   // 主函数：直接执行文档复制操作
   async function copyDocMarkdown() {
     try {
+      let language = normalizeLanguage(window.__docSiteHelperLanguage);
+
       // 1. 获取当前页面 URL
       const currentUrl = window.location.href;
       console.log('当前 URL:', currentUrl);
-      
-      // 2. 从 URL 中提取关键信息
-      const currentProductId = getProductIDFromURL(currentUrl);
-      
-      if (!currentProductId) {
-        window.docSiteUtils.showNotification('无法从 URL 提取产品 ID', 'error');
-        return;
-      }
-      console.log('提取到的当前产品 ID:', currentProductId);
-      
-      // 3. 从存储中获取配置
+
+      // 2. 从存储中获取配置
       const config = await new Promise((resolve) => {
         chrome.storage.sync.get(['docSiteHelperConfig'], (result) => {
           resolve(result.docSiteHelperConfig || {});
         });
       });
-      
+      language = normalizeLanguage(config.language);
+
       console.log('获取到的配置:', config);
+
+      // 3. 从 URL 中提取关键信息
+      const currentProductId = getProductIDFromURL(currentUrl);
       
+      if (!currentProductId) {
+        window.docSiteUtils.showNotification(t(language, 'missingProductId'), 'error');
+        return;
+      }
+      console.log('提取到的当前产品 ID:', currentProductId);
+
       // 4. 验证配置
       if (!config.sourceBaseUrl) {
-        window.docSiteUtils.showNotification('请先配置源文档基础 URL', 'error');
+        window.docSiteUtils.showNotification(t(language, 'missingSourceBaseUrl'), 'error');
         return;
       }
       
@@ -44,16 +96,16 @@ document.head.appendChild(script);
       console.log('URL 参数 - tocItemId:', tocItemId);
       
       // 6. 显示处理中通知
-      window.docSiteUtils.showNotification('正在获取文档 Markdown 内容...', 'info');
+      window.docSiteUtils.showNotification(t(language, 'loadingMarkdown'), 'info');
       
       // 7. 获取 TOC 数据
-      // 使用配置的 API URL 或默认值
-      const docApiUrl = config.docApiUrl || 'https://docs.grapecity.com.cn/documentsite/api';
+      // 使用配置的 API URL；未配置时按当前 DocSite 域名推导
+      const docApiUrl = (config.docApiUrl || `${window.location.origin}/documentsite/api`).replace(/\/+$/, '');
       const productId = config.sourceProductId || currentProductId;
       
       const tocResponse = await fetch(`${docApiUrl}/docversion/version/${productId}`);
       if (!tocResponse.ok) {
-        throw new Error(`获取 TOC 失败: ${tocResponse.statusText}`);
+        throw new Error(t(language, 'tocFailed', { message: tocResponse.statusText }));
       }
       const tocData = await tocResponse.json();
       const tocItems = tocData.toc.tocItemDrafts;
@@ -90,7 +142,7 @@ document.head.appendChild(script);
           if (response && response.success) {
             resolve(response.data);
           } else {
-            reject(new Error(response ? response.error : '获取 Markdown 失败'));
+            reject(new Error(response ? response.error : t(language, 'markdownFailed')));
           }
         });
       });
@@ -150,21 +202,22 @@ document.head.appendChild(script);
       // 15. 显示成功通知
       if (writeSuccess) {
         if (config.copyToClipboard) {
-          window.docSiteUtils.showNotification('文档 Markdown 内容已复制到剪贴板并写入编辑框', 'success', 5000);
+          window.docSiteUtils.showNotification(t(language, 'copyAndWriteSuccess'), 'success', 5000);
         } else {
-          window.docSiteUtils.showNotification('文档 Markdown 内容已成功写入编辑框', 'success', 5000);
+          window.docSiteUtils.showNotification(t(language, 'writeSuccess'), 'success', 5000);
         }
       } else {
         if (config.copyToClipboard) {
-          window.docSiteUtils.showNotification('文档 Markdown 内容已复制到剪贴板', 'success', 5000);
+          window.docSiteUtils.showNotification(t(language, 'copySuccess'), 'success', 5000);
         } else {
-          window.docSiteUtils.showNotification('文档 Markdown 内容获取成功', 'success', 5000);
+          window.docSiteUtils.showNotification(t(language, 'writeFailed'), 'error', 5000);
         }
       }
       
     } catch (error) {
       console.error('复制文档时出错:', error);
-      window.docSiteUtils.showNotification(`复制失败: ${error.message}`, 'error');
+      const language = normalizeLanguage(window.__docSiteHelperLanguage);
+      window.docSiteUtils.showNotification(t(language, 'fetchFailed', { message: error.message }), 'error');
     }
   }
 

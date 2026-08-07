@@ -34,6 +34,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await chrome.sidePanel.open({ tabId: tab.id });
   } else if (info.menuItemId === "upload_selected_images") {
     try {
+      await requestImageHostPermissions(tab, info.selectionText);
+
       // 先按顺序注入依赖脚本
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -132,7 +134,11 @@ chrome.commands.onCommand.addListener(async (command) => {
       // 首先注入prettier库
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
-        files: ['scripts/prettier/standalone.js', 'scripts/prettier/parser-babel.js']
+        files: [
+          'scripts/prettier/standalone.js',
+          'scripts/prettier/parser-babel.js',
+          'scripts/prettier/parser-html.js'
+        ]
       });
       
       // 然后注入并执行格式化脚本
@@ -150,6 +156,8 @@ chrome.commands.onCommand.addListener(async (command) => {
     console.log('Upload images command triggered');
     
     try {
+      await requestImageHostPermissions(activeTab);
+
       // 先按顺序注入依赖脚本
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
@@ -214,6 +222,121 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
+async function requestImageHostPermissions(tab, selectionText = null) {
+  if (!chrome.permissions?.contains || !chrome.permissions?.request || !tab?.id) {
+    return;
+  }
+
+  const markdown = selectionText || await getSelectedText(tab.id);
+  const origins = getImageOriginsFromMarkdown(markdown, tab.url);
+  if (origins.length === 0) {
+    return;
+  }
+
+  const missingOrigins = [];
+  for (const origin of origins) {
+    const hasPermission = await chrome.permissions.contains({ origins: [origin] });
+    if (!hasPermission) {
+      missingOrigins.push(origin);
+    }
+  }
+
+  if (missingOrigins.length === 0) {
+    return;
+  }
+
+  const granted = await chrome.permissions.request({ origins: missingOrigins });
+  if (!granted) {
+    throw new Error(`缺少图片域名访问权限: ${missingOrigins.join(', ')}`);
+  }
+}
+
+async function getSelectedText(tabId) {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const active = document.activeElement;
+      if (
+        active &&
+        (active.tagName === 'TEXTAREA' ||
+          (active.tagName === 'INPUT' && /^(text|search|url|email|tel|password)?$/i.test(active.type || 'text'))) &&
+        typeof active.selectionStart === 'number' &&
+        typeof active.selectionEnd === 'number'
+      ) {
+        return active.value.substring(active.selectionStart, active.selectionEnd);
+      }
+
+      const selectionText = window.getSelection().toString();
+      if (selectionText) {
+        return selectionText;
+      }
+
+      const toastuiTextarea = document.querySelector('.toastui-editor textarea');
+      if (
+        toastuiTextarea &&
+        typeof toastuiTextarea.selectionStart === 'number' &&
+        typeof toastuiTextarea.selectionEnd === 'number'
+      ) {
+        return toastuiTextarea.value.substring(toastuiTextarea.selectionStart, toastuiTextarea.selectionEnd);
+      }
+
+      return '';
+    }
+  });
+
+  return results?.[0]?.result || '';
+}
+
+function getImageOriginsFromMarkdown(markdown, pageUrl) {
+  const origins = new Set();
+  const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
+  let match;
+
+  while ((match = imageRegex.exec(markdown || '')) !== null) {
+    const imageUrl = resolveImageUrlForPermission(match[2], pageUrl);
+    const origin = getOriginFromUrl(imageUrl);
+
+    if (origin && !imageUrl.startsWith('data:')) {
+      origins.add(`${origin}/*`);
+    }
+  }
+
+  return [...origins];
+}
+
+function resolveImageUrlForPermission(imageUrl, pageUrl) {
+  const trimmedUrl = (imageUrl || '').trim();
+  if (!trimmedUrl || trimmedUrl.startsWith('data:')) {
+    return trimmedUrl;
+  }
+
+  if (/^https?:/i.test(trimmedUrl)) {
+    return trimmedUrl;
+  }
+
+  if (trimmedUrl.startsWith('//')) {
+    try {
+      return `${new URL(pageUrl).protocol}${trimmedUrl}`;
+    } catch (error) {
+      return `https:${trimmedUrl}`;
+    }
+  }
+
+  try {
+    return new URL(trimmedUrl, pageUrl).href;
+  } catch (error) {
+    return trimmedUrl;
+  }
+}
+
+function getOriginFromUrl(url) {
+  try {
+    return new URL(url).origin;
+  } catch (error) {
+    return null;
+  }
+}
+
 // 显示通知
 function showNotification(message, type) {
   console.log(`Showing notification: ${message} (${type})`);
@@ -241,20 +364,36 @@ function showNotification(message, type) {
 // 添加消息监听器来处理图片请求
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'fetchImage') {
-    fetch(request.url)
-      .then(response => response.blob())
-      .then(blob => {
-        // 将 blob 转换为 base64
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          sendResponse({ success: true, data: reader.result });
-        };
-        reader.readAsDataURL(blob);
-        return true; // 保持消息通道打开
+    if (!request.url) {
+      sendResponse({ success: false, error: '缺少图片 URL' });
+      return true;
+    }
+
+    ensureHostPermission(request.url)
+      .then(() => fetch(request.url, { credentials: 'include' }))
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const mimeType = response.headers.get('content-type') || 'application/octet-stream';
+        return response.arrayBuffer().then(buffer => ({ buffer, mimeType }));
+      })
+      .then(({ buffer, mimeType }) => {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        }
+        sendResponse({
+          success: true,
+          data: `data:${mimeType};base64,${btoa(binary)}`,
+          mimeType
+        });
       })
       .catch(error => {
         console.error('获取图片失败:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: `获取图片失败 (${request.url}): ${error.message}` });
       });
     return true; // 保持消息通道打开
   }
@@ -278,53 +417,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // 保持消息通道打开
   }
   
-  // 处理文档重写的请求
-  if (request.type === 'rewriteDocument') {
-    const { serverUrl, downloadUrl } = request;
-    
-    fetch(`${serverUrl}/api/generate/stream`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ downloadUrl })
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`服务器响应错误: ${response.status}`);
-        }
-        return response.text();
-      })
-      .then(data => {
-        sendResponse({ success: true, data: data });
-      })
-      .catch(error => {
-        console.error('文档重写失败:', error);
-        sendResponse({ success: false, error: error.message });
-      });
-    return true; // 保持消息通道打开
-  }
-  
-  // 处理清除缓存的请求
-  if (request.type === 'clearCache') {
-    const { serverUrl, downloadUrl } = request;
-    
-    fetch(`${serverUrl}/api/cache/delete-by-url`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: downloadUrl })
-    })
-      .then(response => {
-        return response.json();
-      })
-      .then(data => {
-        // 无论响应状态如何，都认为清除缓存操作完成
-        // 因为即使缓存不存在或清除失败，也应该继续执行重写
-        sendResponse({ success: true, data: data });
-      })
-      .catch(error => {
-        console.error('清除缓存失败:', error);
-        // 即使出错，也返回成功，让重写操作继续执行
-        sendResponse({ success: true, message: '缓存清除请求已发送（可能失败）' });
-      });
-    return true; // 保持消息通道打开
-  }
 });
+
+async function ensureHostPermission(url) {
+  if (!chrome.permissions?.contains || !chrome.permissions?.request) {
+    return;
+  }
+
+  let origin;
+  try {
+    origin = `${new URL(url).origin}/*`;
+  } catch (error) {
+    return;
+  }
+
+  const hasPermission = await chrome.permissions.contains({ origins: [origin] });
+  if (hasPermission) {
+    return;
+  }
+
+  const granted = await chrome.permissions.request({ origins: [origin] });
+  if (!granted) {
+    throw new Error(`缺少图片域名访问权限: ${origin}`);
+  }
+}

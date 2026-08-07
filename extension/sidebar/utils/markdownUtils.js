@@ -31,6 +31,33 @@ export function searchInMarkdown(markdown, searchText, isMultiline = false) {
   }
 }
 
+export function countSearchMatches(markdown, searchText, isMultiline = false) {
+  if (typeof markdown !== 'string' || typeof searchText !== 'string') {
+    return 0;
+  }
+
+  if (!markdown.trim() || !searchText.trim()) return 0;
+
+  const keywords = isMultiline
+    ? searchText.split('\n').map(keyword => keyword.trim()).filter(Boolean)
+    : [searchText.trim()];
+
+  const lowerMarkdown = markdown.toLowerCase();
+
+  return keywords.reduce((total, keyword) => {
+    const lowerKeyword = keyword.toLowerCase();
+    if (!lowerKeyword) return total;
+
+    let count = 0;
+    let index = lowerMarkdown.indexOf(lowerKeyword);
+    while (index !== -1) {
+      count++;
+      index = lowerMarkdown.indexOf(lowerKeyword, index + lowerKeyword.length);
+    }
+    return total + count;
+  }, 0);
+}
+
 /**
  * 从 Markdown 文本中提取包含搜索词的上下文
  * @param {string} markdown - Markdown 文本

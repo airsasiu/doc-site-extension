@@ -1,0 +1,186 @@
+body.settings-page {
+  overflow: auto;
+  padding: 24px 20px 28px;
+}
+
+.settings-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: calc(100vh - 52px);
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px 26px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--surface-strong) 0%, var(--surface-strong-2) 100%);
+  color: #fff;
+  box-shadow: var(--shadow-lg);
+}
+
+.settings-shell > .settings-header {
+  animation-delay: 0ms;
+}
+
+.settings-shell > .settings-grid > .settings-card:nth-child(1) {
+  --enter-order: 0;
+}
+
+.settings-shell > .settings-grid > .settings-card:nth-child(2) {
+  --enter-order: 1;
+}
+
+.settings-shell > .settings-grid > .settings-card:nth-child(3) {
+  --enter-order: 2;
+}
+
+.settings-shell > .settings-footer {
+  animation-delay: 220ms;
+}
+
+.settings-header h1 {
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+  line-height: 1.15;
+}
+
+.settings-header .lead {
+  max-width: 72ch;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.settings-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-metrics .chip {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+
+.toggle-row input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.code-editor {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  background: #fbfcff;
+  min-height: 150px;
+  white-space: pre;
+}
+
+#linkRules,
+#linkLocalizationRules,
+#customCheckRules {
+  min-height: 170px;
+}
+
+.settings-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  bottom: 0;
+  padding: 10px 0 0;
+  background: linear-gradient(180deg, rgba(238, 242, 246, 0), rgba(238, 242, 246, 0.95) 24%);
+  z-index: 2;
+}
+
+.settings-footer .status {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted-strong);
+  transform-origin: top center;
+  animation: ui-pop var(--motion-med) var(--motion-ease-soft) both;
+}
+
+.settings-footer .status:empty {
+  display: none;
+}
+
+.settings-footer .status.success {
+  border-color: #b7e3c7;
+  background: #ecf8f1;
+  color: var(--good);
+}
+
+.settings-footer .status.error {
+  border-color: #f2b8b5;
+  background: #fdecec;
+  color: var(--danger);
+}
+
+.settings-actions {
+  justify-content: flex-end;
+}
+
+.settings-actions button {
+  min-width: 160px;
+}
+
+.secondary-button {
+  background: var(--surface-soft);
+}
+
+@media (max-width: 720px) {
+  .settings-shell {
+    min-height: auto;
+  }
+
+  .settings-header {
+    flex-direction: column;
+  }
+
+  .settings-actions {
+    flex-direction: column;
+  }
+
+  .settings-actions button {
+    width: 100%;
+  }
+}

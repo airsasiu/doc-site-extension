@@ -130,73 +130,10 @@ function updateProgress(current, total, message, type = 'info') {
   showNotification(progressMessage, type, duration, 'progress-notification');
 }
 
-/**
- * 转换链接URL，将 developer.mescius.com 转换为 docs.grapecity.com.cn
- * @param {string} originalUrl - 原始链接
- * @returns {string} - 转换后的链接
- */
-function transformLinkUrl(originalUrl) {
-  // 如果不是 developer.mescius.com 的链接，直接返回原链接
-  if (!originalUrl.includes('developer.mescius.com')) {
-    return originalUrl;
-  }
-  
-  let transformedUrl = originalUrl;
-  
-  // 处理 SpreadJS 文档链接 (docs/latest/online 格式)
-  if (originalUrl.includes('developer.mescius.com/spreadjs/docs/latest/online')) {
-    // 提取类和方法/属性名
-    const match = originalUrl.match(/SpreadJS~(.+?)~(.+?)\.html/);
-    if (match && match[1] && match[2]) {
-      const className = match[1];
-      const memberName = match[2].toLowerCase(); // API 引用中成员名通常是小写的
-      
-      // 构建新的 API 引用链接
-      transformedUrl = `https://docs.grapecity.com.cn/spreadjs/api/v18/classes/${className}#${memberName}`;
-    } else {
-      // 如果无法提取类和成员，使用通用替换
-      transformedUrl = originalUrl.replace(
-        'developer.mescius.com/spreadjs/docs/latest/online',
-        'docs.grapecity.com.cn/spreadjs/api/v18'
-      );
-    }
-  }
-  // 处理 SpreadJS API 链接
-  else if (originalUrl.includes('developer.mescius.com/spreadjs/api')) {
-    transformedUrl = originalUrl.replace(
-      'developer.mescius.com/spreadjs/api', 
-      'docs.grapecity.com.cn/spreadjs/api/v18'
-    );
-  }
-  // 其他 SpreadJS 链接
-  else if (originalUrl.includes('developer.mescius.com/spreadjs')) {
-    transformedUrl = originalUrl.replace(
-      'developer.mescius.com/spreadjs', 
-      'docs.grapecity.com.cn/spreadjs/api/v18'
-    );
-  }
-  // 其他产品的通用处理
-  else {
-    // 提取产品名称
-    const productMatch = originalUrl.match(/developer\.mescius\.com\/([^\/]+)/);
-    if (productMatch && productMatch[1]) {
-      const product = productMatch[1];
-      transformedUrl = originalUrl.replace(
-        `developer.mescius.com/${product}`, 
-        `docs.grapecity.com.cn/${product}`
-      );
-    }
-  }
-  
-  console.log('转换链接:', originalUrl, '->', transformedUrl);
-  return transformedUrl;
-}
-
 // 导出工具函数
 window.docSiteUtils = {
   cleanupMarkdown,
   copyToClipboard,
   showNotification,
-  updateProgress,
-  transformLinkUrl
-}; 
+  updateProgress
+};

@@ -55,6 +55,54 @@ class URLUtils {
   }
 
   /**
+   * 规范化文档路径
+   * @param {string} documentPath - 文档路径或 URL
+   * @returns {string} - 规范化后的路径
+   */
+  static normalizeDocumentPath(documentPath) {
+    if (!documentPath || typeof documentPath !== 'string') {
+      return '';
+    }
+
+    const trimmed = documentPath.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    try {
+      return new URL(trimmed).pathname || '/';
+    } catch (error) {
+      const pathOnly = trimmed.split('#')[0].split('?')[0];
+      if (!pathOnly) {
+        return '';
+      }
+
+      return pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+    }
+  }
+
+  /**
+   * 构建文档页面 URL
+   * @param {string} origin - 站点 origin
+   * @param {string} documentPath - 文档路径或 URL
+   * @returns {string} - 页面 URL
+   */
+  static buildDocumentUrl(origin, documentPath) {
+    const baseOrigin = origin ? new URL(origin).origin : window.location.origin;
+    const normalizedPath = this.normalizeDocumentPath(documentPath);
+
+    if (!normalizedPath) {
+      return baseOrigin;
+    }
+
+    try {
+      return new URL(normalizedPath, baseOrigin).href;
+    } catch (error) {
+      return `${baseOrigin}${normalizedPath}`;
+    }
+  }
+
+  /**
    * 获取当前活动标签页的 URL
    * @returns {Promise<string>} - 当前标签页 URL
    * @throws {Error} - 如果无法获取当前标签页

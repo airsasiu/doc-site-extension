@@ -1,12 +1,142 @@
 import BaseComponent from './base/BaseComponent.js';
 import DocsAPI from '../services/api.js';
 import URLUtils from '../services/urlUtils.js';
+import { getActiveLanguage } from '../../shared/localization.js';
+
+const TEXTS = {
+  cn: {
+    addPage: '添加页面',
+    deletePage: '删除页面',
+    searchParent: '搜索父页面:',
+    parentSearchPlaceholder: '输入父页面名称进行过滤...',
+    parentPage: '父页面:',
+    pageNames: '页面名称列表 (换行分隔):',
+    pageNamesPlaceholder: '例如:\nFVSCHEDULE\nFV\nPV\nPMT',
+    searchDeletePage: '搜索要删除的页面:',
+    deleteSearchPlaceholder: '输入页面名称进行过滤...',
+    selectDeletePage: '选择要删除的页面 (可多选):',
+    recycle: '移至回收站（可恢复）',
+    permanent: '彻底删除（不可恢复）',
+    deleteWarning: '警告：彻底删除操作不可恢复，请务必谨慎操作！',
+    refreshTitle: '重新获取目录',
+    refreshCatalog: '刷新目录',
+    confirm: '确定',
+    catalogRefreshed: '目录已刷新',
+    productIdMissing: '无法获取产品ID',
+    loadAllPagesFailed: '加载所有页面失败: {message}',
+    loadParentPagesFailed: '加载父页面失败: {message}',
+    selectParent: '请选择父页面',
+    enterPageNames: '请输入页面名称列表',
+    validPageNames: '请输入有效的页面名称列表',
+    selectDeletePages: '请选择要删除的页面',
+    permanentConfirm: '确定要彻底删除选中的 {count} 个页面吗？此操作不可恢复，删除后无法找回！',
+    recycleConfirm: '确定要将选中的 {count} 个页面移至回收站吗？',
+    batchAddFailed: '批量添加页面失败: {message}',
+    batchDeleteFailed: '批量删除页面失败: {message}',
+    batchResultTitle: '批量{action}结果',
+    addAction: '添加',
+    deleteAction: '删除',
+    success: '成功',
+    successAction: '成功{action}:',
+    failedAction: '{action}失败:'
+  },
+  en: {
+    addPage: 'Add pages',
+    deletePage: 'Delete pages',
+    searchParent: 'Search parent page:',
+    parentSearchPlaceholder: 'Filter by parent page name...',
+    parentPage: 'Parent page:',
+    pageNames: 'Page names (one per line):',
+    pageNamesPlaceholder: 'Example:\nFVSCHEDULE\nFV\nPV\nPMT',
+    searchDeletePage: 'Search pages to delete:',
+    deleteSearchPlaceholder: 'Filter by page name...',
+    selectDeletePage: 'Select pages to delete (multiple allowed):',
+    recycle: 'Move to recycle bin (recoverable)',
+    permanent: 'Delete permanently (cannot be recovered)',
+    deleteWarning: 'Warning: permanent deletion cannot be undone. Please be careful.',
+    refreshTitle: 'Reload directory',
+    refreshCatalog: 'Refresh directory',
+    confirm: 'Confirm',
+    catalogRefreshed: 'Directory refreshed',
+    productIdMissing: 'Unable to get product ID',
+    loadAllPagesFailed: 'Failed to load pages: {message}',
+    loadParentPagesFailed: 'Failed to load parent pages: {message}',
+    selectParent: 'Please select a parent page',
+    enterPageNames: 'Please enter page names',
+    validPageNames: 'Please enter valid page names',
+    selectDeletePages: 'Please select pages to delete',
+    permanentConfirm: 'Permanently delete the selected {count} pages? This cannot be undone.',
+    recycleConfirm: 'Move the selected {count} pages to the recycle bin?',
+    batchAddFailed: 'Failed to add pages: {message}',
+    batchDeleteFailed: 'Failed to delete pages: {message}',
+    batchResultTitle: 'Batch {action} result',
+    addAction: 'add',
+    deleteAction: 'delete',
+    success: 'Success',
+    successAction: 'Successfully {action}:',
+    failedAction: '{action} failed:'
+  }
+};
+
+function formatMessage(template, params = {}) {
+  return String(template).replace(/\{(\w+)\}/g, (_, key) => {
+    const value = params[key];
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
 
 class BatchAddComponent extends BaseComponent {
   constructor(progressBar) {
     super(progressBar);
     this.currentTab = 'add'; // 设置默认选项卡为添加页面
     this.initContent();
+  }
+
+  t(key, params = {}) {
+    const language = getActiveLanguage();
+    const template = TEXTS[language]?.[key] || TEXTS.cn[key] || key;
+    return formatMessage(template, params);
+  }
+
+  applyLanguage() {
+    if (!this.container) {
+      return;
+    }
+
+    const setText = (selector, value) => {
+      const element = this.container.querySelector(selector);
+      if (element) element.textContent = value;
+    };
+
+    setText('.batch-tab-btn[data-tab="add"]', this.t('addPage'));
+    setText('.batch-tab-btn[data-tab="delete"]', this.t('deletePage'));
+    setText('label[for="parent-page-search"]', this.t('searchParent'));
+    setText('label[for="parent-page-select"]', this.t('parentPage'));
+    setText('label[for="page-names"]', this.t('pageNames'));
+    setText('label[for="delete-page-search"]', this.t('searchDeletePage'));
+    setText('label[for="delete-page-select"]', this.t('selectDeletePage'));
+    setText('label[for="delete-to-recycle"]', this.t('recycle'));
+    setText('label[for="delete-permanently"]', this.t('permanent'));
+    setText('.warning-text', this.t('deleteWarning'));
+    setText('.batch-confirm-btn', this.t('confirm'));
+
+    const parentSearch = this.container.querySelector('#parent-page-search');
+    const pageNames = this.container.querySelector('#page-names');
+    const deleteSearch = this.container.querySelector('#delete-page-search');
+    const refreshBtn = this.container.querySelector('.refresh-btn');
+    if (parentSearch) parentSearch.placeholder = this.t('parentSearchPlaceholder');
+    if (pageNames) pageNames.placeholder = this.t('pageNamesPlaceholder');
+    if (deleteSearch) deleteSearch.placeholder = this.t('deleteSearchPlaceholder');
+    if (refreshBtn) {
+      refreshBtn.title = this.t('refreshTitle');
+      const textNode = Array.from(refreshBtn.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
+      if (textNode) {
+        textNode.textContent = ` ${this.t('refreshCatalog')}`;
+      }
+    }
+
+    const parentSelect = this.container.querySelector('#parent-page-select option[value=""]');
+    if (parentSelect) parentSelect.textContent = this.t('selectParent');
   }
 
   initContent() {
@@ -18,8 +148,8 @@ class BatchAddComponent extends BaseComponent {
     batchOperationsContent.className = 'batch-operations-content';
     batchOperationsContent.innerHTML = `
       <div class="batch-tabs">
-        <button class="batch-tab-btn active" data-tab="add">添加页面</button>
-        <button class="batch-tab-btn" data-tab="delete">删除页面</button>
+        <button class="batch-tab-btn active" data-tab="add">${this.t('addPage')}</button>
+        <button class="batch-tab-btn" data-tab="delete">${this.t('deletePage')}</button>
       </div>
       
       <!-- 批量操作内容 -->
@@ -27,37 +157,37 @@ class BatchAddComponent extends BaseComponent {
         <!-- 添加页面选项卡 -->
         <div class="batch-tab-content active" id="batch-add-tab">
           <div class="form-group">
-            <label for="parent-page-search">搜索父页面:</label>
-            <input type="text" id="parent-page-search" class="parent-page-search" placeholder="输入父页面名称进行过滤...">
-            <label for="parent-page-select">父页面:</label>
+            <label for="parent-page-search">${this.t('searchParent')}</label>
+            <input type="text" id="parent-page-search" class="parent-page-search" placeholder="${this.t('parentSearchPlaceholder')}">
+            <label for="parent-page-select">${this.t('parentPage')}</label>
             <select id="parent-page-select" class="parent-page-select" size="8"></select>
           </div>
           <div class="form-group">
-            <label for="page-names">页面名称列表 (换行分隔):</label>
-            <textarea id="page-names" class="page-names" rows="8" placeholder="例如:\nFVSCHEDULE\nFV\nPV\nPMT"></textarea>
+            <label for="page-names">${this.t('pageNames')}</label>
+            <textarea id="page-names" class="page-names" rows="8" placeholder="${this.t('pageNamesPlaceholder')}"></textarea>
           </div>
         </div>
         
         <!-- 删除页面选项卡 -->
         <div class="batch-tab-content" id="batch-delete-tab">
           <div class="form-group">
-            <label for="delete-page-search">搜索要删除的页面:</label>
-            <input type="text" id="delete-page-search" class="delete-page-search" placeholder="输入页面名称进行过滤...">
-            <label for="delete-page-select">选择要删除的页面 (可多选):</label>
+            <label for="delete-page-search">${this.t('searchDeletePage')}</label>
+            <input type="text" id="delete-page-search" class="delete-page-search" placeholder="${this.t('deleteSearchPlaceholder')}">
+            <label for="delete-page-select">${this.t('selectDeletePage')}</label>
             <select id="delete-page-select" class="delete-page-select" size="10" multiple></select>
           </div>
           <div class="form-group">
             <div class="delete-options">
               <div class="delete-option">
                 <input type="radio" id="delete-to-recycle" name="delete-method" value="recycle" checked>
-                <label for="delete-to-recycle">移至回收站（可恢复）</label>
+                <label for="delete-to-recycle">${this.t('recycle')}</label>
               </div>
               <div class="delete-option">
                 <input type="radio" id="delete-permanently" name="delete-method" value="permanent">
-                <label for="delete-permanently">彻底删除（不可恢复）</label>
+                <label for="delete-permanently">${this.t('permanent')}</label>
               </div>
             </div>
-            <p class="warning-text">警告：彻底删除操作不可恢复，请务必谨慎操作！</p>
+            <p class="warning-text">${this.t('deleteWarning')}</p>
           </div>
         </div>
       </div>
@@ -73,13 +203,13 @@ class BatchAddComponent extends BaseComponent {
       
       <!-- 操作按钮 -->
       <div class="batch-actions">
-        <button class="refresh-btn" title="重新获取目录">
+        <button class="refresh-btn" title="${this.t('refreshTitle')}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.5 2v6h-6M2.5 22v-6h6M2 12h20M12 2A10 10 0 1 0 12 22 10 10 0 1 0 12 2z"></path>
           </svg>
-          刷新目录
+          ${this.t('refreshCatalog')}
         </button>
-        <button class="batch-confirm-btn" id="action-btn">确定</button>
+        <button class="batch-confirm-btn" id="action-btn">${this.t('confirm')}</button>
       </div>
       
       <!-- 结果显示区域 -->
@@ -136,7 +266,7 @@ class BatchAddComponent extends BaseComponent {
           this.loadAllPages()
         ]);
         // 显示刷新成功消息
-        this.showResult('目录已刷新', 'success');
+        this.showResult(this.t('catalogRefreshed'), 'success');
       });
     }
     
@@ -190,7 +320,7 @@ class BatchAddComponent extends BaseComponent {
       const productID = URLUtils.getProductIDFromURL(currentUrl);
       
       if (!productID) {
-        throw new Error('无法获取产品ID');
+        throw new Error(this.t('productIdMissing'));
       }
       
       const versions = await DocsAPI.getDocVersions(productID);
@@ -207,7 +337,7 @@ class BatchAddComponent extends BaseComponent {
       this.renderAllPages(this.originalAllPages);
     } catch (error) {
       console.error('加载所有页面失败:', error);
-      this.showError(`加载所有页面失败: ${error.message}`);
+      this.showError(this.t('loadAllPagesFailed', { message: error.message }));
     }
   }
 
@@ -268,14 +398,14 @@ class BatchAddComponent extends BaseComponent {
       const pageType = URLUtils.getPageTypeFromURL(currentUrl);
       
       if (!productID) {
-        throw new Error('无法获取产品ID');
+        throw new Error(this.t('productIdMissing'));
       }
       
       const versions = await DocsAPI.getDocVersions(productID);
       const select = this.container.querySelector('#parent-page-select');
       
       // 清空现有选项
-      select.innerHTML = '<option value="">请选择父页面</option>';
+      select.innerHTML = `<option value="">${this.t('selectParent')}</option>`;
       
       // 保存原始选项数据
       this.originalParentPages = [];
@@ -295,7 +425,7 @@ class BatchAddComponent extends BaseComponent {
       this.renderParentPages(this.originalParentPages);
     } catch (error) {
       console.error('加载父页面失败:', error);
-      this.showError(`加载父页面失败: ${error.message}`);
+      this.showError(this.t('loadParentPagesFailed', { message: error.message }));
     }
   }
 
@@ -319,7 +449,7 @@ class BatchAddComponent extends BaseComponent {
   renderParentPages(pages) {
     const select = this.container.querySelector('#parent-page-select');
     // 保留默认选项
-    select.innerHTML = '<option value="">请选择父页面</option>';
+    select.innerHTML = `<option value="">${this.t('selectParent')}</option>`;
     
     pages.forEach(page => {
       const option = document.createElement('option');
@@ -388,12 +518,12 @@ class BatchAddComponent extends BaseComponent {
       
       // 验证输入
       if (!select.value) {
-        this.showResult('请选择父页面', 'error');
+        this.showResult(this.t('selectParent'), 'error');
         return;
       }
       
       if (!pageNamesText.trim()) {
-        this.showResult('请输入页面名称列表', 'error');
+        this.showResult(this.t('enterPageNames'), 'error');
         return;
       }
       
@@ -403,7 +533,7 @@ class BatchAddComponent extends BaseComponent {
         .filter(name => name.length > 0);
       
       if (pageNames.length === 0) {
-        this.showResult('请输入有效的页面名称列表', 'error');
+        this.showResult(this.t('validPageNames'), 'error');
         return;
       }
       
@@ -412,7 +542,7 @@ class BatchAddComponent extends BaseComponent {
       const productID = URLUtils.getProductIDFromURL(currentUrl);
       
       if (!productID) {
-        this.showResult('无法获取产品ID', 'error');
+        this.showResult(this.t('productIdMissing'), 'error');
         return;
       }
       
@@ -468,7 +598,7 @@ class BatchAddComponent extends BaseComponent {
     } catch (error) {
       console.error('批量添加页面失败:', error);
       this.progressBar.reset();
-      this.showResult(`批量添加页面失败: ${error.message}`, 'error');
+      this.showResult(this.t('batchAddFailed', { message: error.message }), 'error');
     }
   }
 
@@ -484,7 +614,7 @@ class BatchAddComponent extends BaseComponent {
       
       // 验证输入
       if (selectedPageIds.length === 0) {
-        this.showResult('请选择要删除的页面', 'error');
+        this.showResult(this.t('selectDeletePages'), 'error');
         return;
       }
       
@@ -494,8 +624,8 @@ class BatchAddComponent extends BaseComponent {
       
       // 确认删除
       const confirmMessage = isPermanent 
-        ? `确定要彻底删除选中的 ${selectedPageIds.length} 个页面吗？此操作不可恢复，删除后无法找回！`
-        : `确定要将选中的 ${selectedPageIds.length} 个页面移至回收站吗？`;
+        ? this.t('permanentConfirm', { count: selectedPageIds.length })
+        : this.t('recycleConfirm', { count: selectedPageIds.length });
         
       if (!confirm(confirmMessage)) {
         return;
@@ -535,7 +665,7 @@ class BatchAddComponent extends BaseComponent {
     } catch (error) {
       console.error('批量删除页面失败:', error);
       this.progressBar.reset();
-      this.showResult(`批量删除页面失败: ${error.message}`, 'error');
+      this.showResult(this.t('batchDeleteFailed', { message: error.message }), 'error');
     }
   }
 
@@ -548,36 +678,48 @@ class BatchAddComponent extends BaseComponent {
 
   // 显示结果信息
   showResult(message, type) {
-    // 移除现有结果
     const existingResult = this.container.querySelector('.batch-result-item');
-    if (existingResult) {
-      existingResult.remove();
-    }
-    
-    // 创建新结果
-    const resultDiv = document.createElement('div');
-    resultDiv.className = `batch-result-item ${type}`;
-    resultDiv.innerHTML = message;
-    
-    // 添加到结果容器
     const resultContainer = this.container.querySelector('.batch-result-container');
-    resultContainer.appendChild(resultDiv);
-    
-    // 3秒后自动移除
-    setTimeout(() => {
-      if (resultDiv.parentNode) {
-        resultDiv.remove();
-      }
-    }, 3000);
+    const renderResult = () => {
+      const resultDiv = document.createElement('div');
+      resultDiv.className = `batch-result-item ${type} motion-leave`;
+      resultDiv.innerHTML = message;
+      resultContainer.appendChild(resultDiv);
+
+      setTimeout(() => {
+        if (resultDiv.parentNode) {
+          resultDiv.classList.add('is-leaving');
+          setTimeout(() => {
+            if (resultDiv.parentNode) {
+              resultDiv.remove();
+            }
+          }, 160);
+        }
+      }, 3000);
+    };
+
+    if (existingResult) {
+      existingResult.classList.add('is-leaving');
+      setTimeout(() => {
+        if (existingResult.parentNode) {
+          existingResult.remove();
+        }
+        renderResult();
+      }, 160);
+      return;
+    }
+
+    renderResult();
   }
   
   showBatchResult(results) {
     const successCount = results.filter(r => r.success).length;
     const totalCount = results.length;
+    const action = this.currentTab === 'add' ? this.t('addAction') : this.t('deleteAction');
     
     let resultHtml = `
-      <h4>批量${this.currentTab === 'add' ? '添加' : '删除'}结果</h4>
-      <p>成功: ${successCount}/${totalCount}</p>
+      <h4>${this.t('batchResultTitle', { action })}</h4>
+      <p>${this.t('success')}: ${successCount}/${totalCount}</p>
     `;
     
     // 添加详细结果
@@ -586,7 +728,7 @@ class BatchAddComponent extends BaseComponent {
     // 成功的结果
     const successResults = results.filter(r => r.success);
     if (successResults.length > 0) {
-      resultHtml += `<h5>成功${this.currentTab === 'add' ? '添加' : '删除'}:</h5><ul>`;
+      resultHtml += `<h5>${this.t('successAction', { action })}</h5><ul>`;
       successResults.forEach(r => {
         resultHtml += `<li style="color: #155724;">${r.name}</li>`;
       });
@@ -596,7 +738,7 @@ class BatchAddComponent extends BaseComponent {
     // 失败的结果
     const errorResults = results.filter(r => !r.success);
     if (errorResults.length > 0) {
-      resultHtml += `<h5>${this.currentTab === 'add' ? '添加' : '删除'}失败:</h5><ul>`;
+      resultHtml += `<h5>${this.t('failedAction', { action })}</h5><ul>`;
       errorResults.forEach(r => {
         resultHtml += `<li style="color: #721c24;">${r.name}: ${r.error}</li>`;
       });

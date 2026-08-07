@@ -1,22 +1,24 @@
 {
   "manifest_version": 3,
-  "name": "DocSite Search Helper",
+  "name": "Documentation Helper",
   "version": "1.0",
-  "description": "在文档站点中搜索 Markdown 内容。支持实时搜索预览，快速定位文档位置。",
+  "description": "在文档站点中搜索、检查、整理和处理 Markdown 内容。",
   "permissions": [
     "activeTab",
     "sidePanel",
     "tabs",
     "scripting",
     "contextMenus",
-    "storage"
+    "storage",
+    "permissions"
   ],
   "host_permissions": [
-    "https://docs.grapecity.com.cn/*",
-    "https://developer.mescius.com/*",
-    "https://docapp.mescius.io/*",
     "http://127.0.0.1:*",
     "http://localhost:*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
   ],
   "side_panel": {
     "default_path": "sidebar/sidebar.html"
@@ -60,7 +62,7 @@
     }
   },
   "action": {
-    "default_title": "DocSite Search Helper",
+    "default_title": "Documentation Helper",
     "default_popup": "help/popup.html"
   },
   "options_page": "options/options.html",

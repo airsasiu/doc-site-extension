@@ -2,64 +2,97 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../shared/theme.css">
   <link rel="stylesheet" href="sidebar.css">
 </head>
 <body>
-  <div class="sidebar-container">
-    
+  <div class="sidebar-shell">
+    <header class="sidebar-topbar motion-rise">
+      <div class="sidebar-brand">
+        <h1>文档工作台</h1>
+      </div>
+      <div class="sidebar-compact-label" aria-hidden="true">工作模式</div>
+      <button class="sidebar-compact-toggle" type="button" aria-pressed="false" title="收起工作区">收起</button>
+    </header>
+
     <!-- 主要Tab导航 -->
-    <div class="main-tab-header">
-      <button class="main-tab-btn active" data-tab="search">搜索</button>
-      <button class="main-tab-btn" data-tab="document-operations">文档操作</button>
-      <button class="main-tab-btn" data-tab="page-operations">页面操作</button>
+    <div class="main-tab-header motion-rise" role="tablist" aria-label="功能切换">
+      <button class="main-tab-btn active" data-tab="search" type="button" title="搜索">搜</button>
+      <button class="main-tab-btn" data-tab="document-operations" type="button" title="文档操作">文</button>
+      <button class="main-tab-btn" data-tab="page-operations" type="button" title="页面操作">页</button>
     </div>
     
     <!-- 搜索Tab内容 -->
     <div class="main-tab-content active" id="search-tab">
-      <!-- 搜索进度条 -->
-      <div class="search-progress-container">
-        <div class="progress-text"></div>
-        <div class="progress-bar-container">
-          <div class="progress-bar"></div>
-        </div>
+      <div class="search-workspace-tabs motion-rise" role="tablist" aria-label="搜索类型">
+        <button class="search-workspace-tab active" data-search-panel="content-search-panel" type="button">内容搜索</button>
+        <button class="search-workspace-tab" data-search-panel="page-link-panel" type="button">页面链接</button>
       </div>
-      <div class="search-section">
-        <div class="search-input-container">
-          <textarea class="search-input" placeholder="搜索文档内容..."></textarea>
-          <div class="search-options">
-            <label class="multiline-option">
-              <input type="checkbox" class="multiline-checkbox">
-              <span>多行匹配</span>
-            </label>
-            <div class="help-icon" title="勾选时，搜索内容将按换行分割为多个匹配项；不勾选时，所有内容作为一个匹配项">?</div>
+
+      <section class="search-workspace-panel active" id="content-search-panel">
+        <!-- 搜索进度条 -->
+        <div class="search-progress-container motion-rise">
+          <div class="progress-text"></div>
+          <div class="progress-bar-container">
+            <div class="progress-bar"></div>
           </div>
         </div>
-        <div class="search-actions">
-          <button class="search-button">搜索</button>
-          <button class="routine-check-button">常规检查</button>
-        </div>
-      </div>
-      
-      <!-- 搜索结果区域 -->
-      <div class="results-section">
-        <div class="results-header">
-          <div class="result-count"></div>
-          <div class="view-toggle">
-            <button class="view-toggle-btn active" data-view="list">列表视图</button>
-            <button class="view-toggle-btn" data-view="tree">树形视图</button>
+        <div class="search-section motion-rise">
+          <div class="search-input-container">
+            <textarea class="search-input" placeholder="搜索文档内容..."></textarea>
+            <div class="search-options">
+              <label class="multiline-option">
+                <input type="checkbox" class="multiline-checkbox">
+                <span>多行匹配</span>
+              </label>
+              <div class="help-icon" title="勾选时，搜索内容将按换行分割为多个匹配项；不勾选时，所有内容作为一个匹配项">?</div>
+            </div>
+          </div>
+          <div class="search-actions">
+            <button class="search-button" type="button">搜索</button>
+            <button class="routine-check-button" type="button">常规检查</button>
           </div>
         </div>
-        <div class="tab-container">
-          <div class="tab-header"></div>
-          <div class="tab-content"></div>
+
+        <!-- 搜索结果区域 -->
+        <div class="results-section">
+          <div class="results-header motion-rise">
+            <div class="result-count"></div>
+            <div class="view-toggle">
+              <button class="view-toggle-btn active" data-view="list">列表视图</button>
+              <button class="view-toggle-btn" data-view="tree">路径分组</button>
+            </div>
+          </div>
+          <div class="tab-container motion-rise">
+            <div class="tab-header"></div>
+            <div class="tab-content"></div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section class="search-workspace-panel" id="page-link-panel">
+        <div class="page-link-lookup-section motion-rise">
+          <div class="page-link-lookup-head">
+            <div>
+              <p class="section-title page-link-lookup-title">Page Link</p>
+              <h2 class="page-link-lookup-heading">查找页面链接</h2>
+            </div>
+            <span class="page-link-lookup-count">0</span>
+          </div>
+          <input class="page-link-input" type="search" placeholder="输入页面标题、路径或 URL 自动筛选...">
+          <div class="page-link-lookup-status">输入内容后会自动筛选当前版本的页面。</div>
+        </div>
+        <div class="page-link-results-section motion-rise">
+          <div class="page-link-results"></div>
+        </div>
+      </section>
     </div>
     
     <!-- 文档操作Tab内容 -->
     <div class="main-tab-content" id="document-operations-tab">
       <!-- 文档操作进度条 -->
-      <div class="document-progress-container">
+      <div class="document-progress-container motion-rise">
         <div class="progress-text"></div>
         <div class="progress-bar-container">
           <div class="progress-bar"></div>
@@ -72,4 +105,4 @@
   </div>
   <script type="module" src="sidebar.js"></script>
 </body>
-</html> 
+</html>

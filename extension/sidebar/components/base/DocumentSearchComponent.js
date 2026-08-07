@@ -1,14 +1,45 @@
 import BaseComponent from './BaseComponent.js';
+import { getActiveLanguage } from '../../../shared/localization.js';
+
+const TEXTS = {
+  cn: {
+    resultTypeLabel: '结果类型',
+    summary: '{types} 类 / {items} 项',
+    ungrouped: '未分组',
+    markResolved: '标记为已解决',
+    unmarkResolved: '取消标记',
+    matched: '命中 {count} 处'
+  },
+  en: {
+    resultTypeLabel: 'Result type',
+    summary: '{types} types / {items} items',
+    ungrouped: 'Ungrouped',
+    markResolved: 'Mark as resolved',
+    unmarkResolved: 'Unmark',
+    matched: '{count} matches'
+  }
+};
+
+function t(key, params = {}) {
+  const language = getActiveLanguage();
+  const template = TEXTS[language]?.[key] || TEXTS.cn[key] || key;
+  return String(template).replace(/\{(\w+)\}/g, (_, name) => {
+    const value = params[name];
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
 
 class DocumentSearchComponent extends BaseComponent {
   constructor(progressBar) {
     super(progressBar);
     this.searchResults = new Map();
     this.totalResults = new Map(); // 存储每个标签的原始结果总数
+    this.tabModes = new Map();
     this.tabHeader = document.querySelector('.tab-header');
     this.tabContent = document.querySelector('.tab-content');
     this.currentView = 'list'; // 默认列表视图
     this.markedResults = new Set(); // 存储已标记的结果
+    this.tabLabels = new Map();
     this.initViewToggle();
   }
 
@@ -27,20 +58,122 @@ class DocumentSearchComponent extends BaseComponent {
     });
   }
 
+  decorateMotion(element, enterOrder = 0) {
+    if (!element) {
+      return element;
+    }
+
+    element.classList.add('motion-leave');
+    element.style.setProperty('--enter-order', String(enterOrder));
+    return element;
+  }
+
   getTabLabel(tabId) {
-    return document.querySelector(`[data-tab-id="${tabId}"]`)?.dataset.label || tabId;
+    return this.tabLabels.get(tabId) || tabId;
   }
 
   clearResults() {
     this.searchResults.clear();
     this.totalResults.clear(); // 清除原始结果总数
     this.markedResults.clear();
+    this.tabLabels.clear();
+    this.tabModes.clear();
     if (this.tabHeader) {
       this.tabHeader.innerHTML = '';
     }
     if (this.tabContent) {
       this.tabContent.innerHTML = '';
     }
+  }
+
+  ensureTabPicker() {
+    if (!this.tabHeader) return null;
+
+    let select = this.tabHeader.querySelector('.tab-select');
+    if (select) {
+      return select;
+    }
+
+    this.tabHeader.innerHTML = '';
+
+    select = document.createElement('select');
+    select.className = 'tab-select';
+    select.setAttribute('aria-label', t('resultTypeLabel'));
+    select.addEventListener('change', () => this.switchTab(select.value));
+
+    const summary = document.createElement('span');
+    summary.className = 'tab-summary';
+
+    this.tabHeader.appendChild(select);
+    this.tabHeader.appendChild(summary);
+    return select;
+  }
+
+  updateTabPickerSummary() {
+    const summary = this.tabHeader?.querySelector('.tab-summary');
+    const select = this.tabHeader?.querySelector('.tab-select');
+    if (!summary || !select) return;
+
+    const totalTypes = select.options.length;
+    const totalRemaining = Array.from(this.searchResults.values())
+      .reduce((sum, results) => sum + results.size, 0);
+    summary.textContent = t('summary', { types: totalTypes, items: totalRemaining });
+  }
+
+  getGroupPath(path = '') {
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length <= 1) {
+      return path || t('ungrouped');
+    }
+    return `/${parts.slice(0, -1).join('/')}`;
+  }
+
+  renderGroupedView(results, panel) {
+    const groups = new Map();
+    results.forEach(result => {
+      const groupPath = this.getGroupPath(result.documentPath || result.path);
+      if (!groups.has(groupPath)) {
+        groups.set(groupPath, []);
+      }
+      groups.get(groupPath).push(result);
+    });
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'path-group-list';
+
+    Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([groupPath, groupResults], groupIndex) => {
+        const group = document.createElement('section');
+        group.className = 'path-group';
+        this.decorateMotion(group, groupIndex);
+
+        const header = document.createElement('div');
+        header.className = 'path-group-header';
+
+        const title = document.createElement('div');
+        title.className = 'path-group-title';
+        title.textContent = groupPath;
+        title.title = groupPath;
+
+        const count = document.createElement('span');
+        count.className = 'path-group-count';
+        count.textContent = `${groupResults.length}`;
+
+        const items = document.createElement('div');
+        items.className = 'path-group-results';
+        groupResults.forEach((result, resultIndex) => {
+          items.appendChild(this.createResultItem(result, groupIndex * 100 + resultIndex));
+        });
+
+        header.appendChild(title);
+        header.appendChild(count);
+        group.appendChild(header);
+        group.appendChild(items);
+        wrapper.appendChild(group);
+      });
+
+    panel.appendChild(wrapper);
   }
 
   // 构建树形结构
@@ -71,10 +204,11 @@ class DocumentSearchComponent extends BaseComponent {
     const container = document.createElement('div');
     container.className = 'tree-container';
 
-    Object.entries(tree).forEach(([path, node]) => {
+    Object.entries(tree).forEach(([path, node], index) => {
       const folderDiv = document.createElement('div');
       folderDiv.className = 'tree-folder';
       folderDiv.style.marginLeft = `${level * 20}px`;
+      this.decorateMotion(folderDiv, level + index);
 
       const headerDiv = document.createElement('div');
       headerDiv.className = 'tree-folder-header';
@@ -104,6 +238,7 @@ class DocumentSearchComponent extends BaseComponent {
         node.items.forEach(result => {
           const resultDiv = document.createElement('div');
           resultDiv.className = 'result-item';
+          this.decorateMotion(resultDiv, index);
           resultDiv.innerHTML = `
             <div class="result-title">${result.title}</div>
             <div class="result-content">${result.content}</div>
@@ -137,19 +272,16 @@ class DocumentSearchComponent extends BaseComponent {
 
   // 渲染列表视图
   renderListView(results, panel) {
-    // 添加虚拟滚动支持
-    if (results.length > 50) {
-      this.renderVirtualListView(results, panel);
-    } else {
-      // 结果较少时使用传统渲染方式
-      this.renderTraditionalListView(results, panel);
-    }
+    panel.classList.remove('virtual-scroll-container');
+    panel.style.overflow = '';
+    panel.style.position = '';
+    this.renderTraditionalListView(results, panel);
   }
 
   // 传统渲染方式（适用于结果较少的情况）
   renderTraditionalListView(results, panel) {
-    results.forEach(result => {
-      const resultDiv = this.createResultItem(result);
+    results.forEach((result, index) => {
+      const resultDiv = this.createResultItem(result, index);
       panel.appendChild(resultDiv);
     });
   }
@@ -207,7 +339,7 @@ class DocumentSearchComponent extends BaseComponent {
       for (let i = startIndex; i <= endIndex; i++) {
         if (!visibleItems.has(i)) {
           const result = results[i];
-          const resultDiv = this.createResultItem(result);
+          const resultDiv = this.createResultItem(result, i);
           resultDiv.style.position = 'absolute';
           resultDiv.style.top = `${i * ITEM_HEIGHT}px`;
           resultDiv.style.left = '0';
@@ -236,10 +368,12 @@ class DocumentSearchComponent extends BaseComponent {
   }
 
   // 创建单个结果项元素
-  createResultItem(result) {
+  createResultItem(result, enterOrder = 0) {
     const resultDiv = document.createElement('div');
     resultDiv.className = 'result-item';
+    this.decorateMotion(resultDiv, enterOrder);
     const resultId = `${result.itemId}-${result.configId}`;
+    const isCopyLink = result.actionType === 'copy-link';
     
     if (this.markedResults.has(resultId)) {
       resultDiv.classList.add('marked');
@@ -247,12 +381,15 @@ class DocumentSearchComponent extends BaseComponent {
 
     resultDiv.innerHTML = `
       <div class="result-content-wrapper">
-        <div class="result-title">${result.title}</div>
+          <div class="result-title-row">
+          <div class="result-title">${result.title}</div>
+          ${Number.isFinite(result.matchCount) ? `<span class="result-match-count">${t('matched', { count: result.matchCount })}</span>` : ''}
+        </div>
         <div class="result-content">${result.content}</div>
         <div class="result-path">${result.path}</div>
       </div>
       <div class="result-actions">
-        <button class="mark-button">${this.markedResults.has(resultId) ? '取消标记' : '标记为已解决'}</button>
+        <button class="mark-button${isCopyLink ? ' copy-link-button' : ''}" type="button">${isCopyLink ? this.getText('copyLink') : (this.markedResults.has(resultId) ? t('unmarkResolved') : t('markResolved'))}</button>
       </div>
     `;
 
@@ -260,6 +397,10 @@ class DocumentSearchComponent extends BaseComponent {
     resultDiv.addEventListener('click', async (e) => {
       if (e.target.classList.contains('mark-button')) {
         e.stopPropagation();
+        if (isCopyLink) {
+          await this.handleCopyResultLink(result.url);
+          return;
+        }
         this.toggleMark(resultId, resultDiv);
       } else if (result.url) {
         await this.navigateCurrentTab(result.url);
@@ -281,33 +422,32 @@ class DocumentSearchComponent extends BaseComponent {
     return `rgb(${r}, ${g}, ${b})`;
   }
 
-  updateTypeTab(tabId, label, results) {
+  updateTypeTab(tabId, label, results, options = {}) {
     if (!this.tabHeader || !this.tabContent) {
       console.error('Tab containers not found');
       return;
     }
 
-    const existingTab = document.querySelector(`[data-tab-id="${tabId}"]`);
-    
+    const mode = options.mode || this.tabModes.get(tabId) || 'progress';
+    this.tabModes.set(tabId, mode);
+
     // 计算已解决数量和总数
     const total = this.totalResults.get(tabId) || 0;
     const remaining = results.length;
     const completed = total - remaining;
-    
-    // 创建包含进度的标题
-    const progressTitle = `${label}(${completed} / ${total})`;
-    
-    // 获取进度颜色
-    const progressColor = this.getProgressColor(completed, total);
+    this.tabLabels.set(tabId, label);
+    const select = this.ensureTabPicker();
+    const existingTab = Array.from(select.options)
+      .find(option => option.value === tabId);
     
     if (!existingTab) {
-      const button = document.createElement('button');
-      button.className = 'tab-button';
-      button.dataset.tabId = tabId;
-      button.dataset.label = label;
-      button.innerHTML = `${label}<span class="progress-count" style="color: ${progressColor}">(${completed} / ${total})</span>`;
-      button.addEventListener('click', () => this.switchTab(tabId));
-      this.tabHeader.appendChild(button);
+      const option = document.createElement('option');
+      option.value = tabId;
+      option.dataset.label = label;
+      option.textContent = mode === 'lookup'
+        ? `${label} (${remaining})`
+        : `${label} (${completed} / ${total})`;
+      select.appendChild(option);
 
       const panel = document.createElement('div');
       panel.className = 'tab-panel';
@@ -315,13 +455,24 @@ class DocumentSearchComponent extends BaseComponent {
       this.tabContent.appendChild(panel);
 
       // 只有新创建的标签页才默认激活，且只有第一个标签页才自动激活
-      const totalTabs = this.tabHeader.querySelectorAll('.tab-button').length;
+      const totalTabs = select.options.length;
       if (totalTabs === 1) {
         this.switchTab(tabId);
       }
     } else {
-      existingTab.innerHTML = `${label}<span class="progress-count" style="color: ${progressColor}">(${completed} / ${total})</span>`;
+      existingTab.textContent = mode === 'lookup'
+        ? `${label} (${remaining})`
+        : `${label} (${completed} / ${total})`;
     }
+
+    const tabOption = existingTab || Array.from(select.options)
+      .find(option => option.value === tabId);
+    if (tabOption) {
+      tabOption.style.color = mode === 'lookup'
+        ? 'var(--accent-strong)'
+        : this.getProgressColor(completed, total);
+    }
+    this.updateTabPickerSummary();
 
     const panel = document.getElementById(tabId);
     if (!panel) {
@@ -331,9 +482,13 @@ class DocumentSearchComponent extends BaseComponent {
     
     panel.innerHTML = '';
 
+    if (mode === 'lookup' && results.length === 0) {
+      panel.innerHTML = `<div class="no-results">${options.emptyMessage || 'No results'}</div>`;
+      return;
+    }
+
     if (this.currentView === 'tree') {
-      const tree = this.buildTree(results);
-      panel.appendChild(this.renderTree(tree));
+      this.renderGroupedView(results, panel);
     } else {
       this.renderListView(results, panel);
     }
@@ -342,10 +497,10 @@ class DocumentSearchComponent extends BaseComponent {
   switchTab(tabId) {
     if (!tabId) return;
     
-    const buttons = this.tabHeader.querySelectorAll('.tab-button');
-    buttons.forEach(button => {
-      button.classList.toggle('active', button.dataset.tabId === tabId);
-    });
+    const select = this.tabHeader?.querySelector('.tab-select');
+    if (select && select.value !== tabId) {
+      select.value = tabId;
+    }
 
     const panels = this.tabContent.querySelectorAll('.tab-panel');
     panels.forEach(panel => {
@@ -356,33 +511,50 @@ class DocumentSearchComponent extends BaseComponent {
   // 切换标记状态
   toggleMark(resultId, element) {
     // 更新当前标签页的结果
-    const currentTab = document.querySelector('.tab-button.active');
-    if (currentTab) {
-      const tabId = currentTab.getAttribute('data-tab-id');
+    const currentTab = this.tabHeader?.querySelector('.tab-select');
+    if (currentTab?.value) {
+      const tabId = currentTab.value;
       const typeResults = this.searchResults.get(tabId);
       
       if (typeResults) {
-        // 从结果Map中移除对应的结果
-        typeResults.delete(resultId);
-        
         // 更新标记集合
         if (this.markedResults.has(resultId)) {
           this.markedResults.delete(resultId);
         } else {
           this.markedResults.add(resultId);
         }
-        
-        // 更新标签页显示
-        const label = this.getTabLabel(tabId);
-        this.updateTypeTab(tabId, label, Array.from(typeResults.values()));
+
+        if (element) {
+          element.classList.add('is-leaving');
+        }
+
+        window.setTimeout(() => {
+          typeResults.delete(resultId);
+
+          // 更新标签页显示
+          const label = this.getTabLabel(tabId);
+          this.updateTypeTab(tabId, label, Array.from(typeResults.values()));
+        }, 160);
       }
+    }
+  }
+
+  async handleCopyResultLink(url) {
+    if (!url) {
+      return;
+    }
+
+    const copied = await this.copyToClipboard(url);
+    if (copied) {
+      this.showStatus(this.getText('linkCopied'), 'success');
+    } else {
+      this.showStatus(this.getText('copyFailed', { message: 'clipboard unavailable' }), 'error');
     }
   }
 
   // 核心搜索方法
   async performSearch(searchConfigs) {
-    this.searchResults.clear();
-    this.totalResults.clear(); // 清空原始结果总数
+    this.clearResults();
     
     // 初始化结果集和计数器
     searchConfigs.forEach(config => {
@@ -392,7 +564,7 @@ class DocumentSearchComponent extends BaseComponent {
 
     // 直接处理文档，实时更新结果和 UI
     await this.processDocuments(async ({ content, item, productID }) => {
-      searchConfigs.forEach(config => {
+      for (const config of searchConfigs) {
         if (config.check(content.markdownContent)) {
           // 增加原始结果总数计数（不管是否已标记）
           const currentTotal = this.totalResults.get(config.id) || 0;
@@ -402,14 +574,20 @@ class DocumentSearchComponent extends BaseComponent {
           const result = {
             title: content.title || item.text || item.displayName,
             message: config.getMessage ? config.getMessage(content.markdownContent) : '',
-            content: config.getMessage ? config.getMessage(content.markdownContent) : '',
-            url: this.getDocUrl(productID, item.id, item.tocItemId),
+            content: config.getContent
+              ? config.getContent(content.markdownContent)
+              : (config.getMessage ? config.getMessage(content.markdownContent) : ''),
+            url: await this.getDocUrl(productID, item.id, item.tocItemId),
             path: item.documentPath,
             tocItemId: item.tocItemId,
             productID: productID,
             itemId: item.id,
-            configId: config.id
+            configId: config.id,
+            actionType: config.actionType || 'mark'
           };
+          if (typeof config.getMatchCount === 'function') {
+            result.matchCount = config.getMatchCount(content.markdownContent);
+          }
           
           // 检查是否已标记为已解决
           const resultId = `${result.itemId}-${result.configId}`;
@@ -419,10 +597,12 @@ class DocumentSearchComponent extends BaseComponent {
             typeResults.set(resultId, result);
             
             // 实时更新标签页显示
-            this.updateTypeTab(config.id, config.label, Array.from(typeResults.values()));
+            this.updateTypeTab(config.id, config.label, Array.from(typeResults.values()), {
+              mode: config.mode || 'progress'
+            });
           }
         }
-      });
+      }
     });
   }
 
@@ -441,4 +621,4 @@ class DocumentSearchComponent extends BaseComponent {
   }
 }
 
-export default DocumentSearchComponent; 
+export default DocumentSearchComponent;

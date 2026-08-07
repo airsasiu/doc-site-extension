@@ -3,173 +3,163 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DocSite Helper 配置</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      padding: 20px;
-      max-width: 600px;
-      margin: 0 auto;
-      background-color: #f5f5f5;
-    }
-    h1 {
-      font-size: 24px;
-      margin-bottom: 20px;
-      color: #333;
-    }
-    .option-group {
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .option-group h2 {
-      font-size: 18px;
-      margin-bottom: 15px;
-      color: #555;
-    }
-    .form-row {
-      margin-bottom: 15px;
-    }
-    .form-row label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 600;
-      color: #666;
-    }
-    .form-row input[type="text"],
-    .form-row select {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-    .form-row input[type="text"]:focus,
-    .form-row select:focus {
-      outline: none;
-      border-color: #1890ff;
-      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-    }
-    .description {
-      font-size: 12px;
-      color: #999;
-      margin-top: 5px;
-    }
-    button {
-      background-color: #1890ff;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 4px;
-      font-size: 14px;
-      cursor: pointer;
-      margin-right: 10px;
-    }
-    button:hover {
-      background-color: #40a9ff;
-    }
-    button[type="button"] {
-      background-color: #f0f0f0;
-      color: #333;
-    }
-    button[type="button"]:hover {
-      background-color: #e0e0e0;
-    }
-    .status {
-      margin-top: 15px;
-      padding: 10px;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    .status.success {
-      background-color: #f6ffed;
-      border: 1px solid #b7eb8f;
-      color: #52c41a;
-    }
-    .status.error {
-      background-color: #fff2f0;
-      border: 1px solid #ffccc7;
-      color: #ff4d4f;
-    }
-  </style>
+  <title>Documentation Helper 配置</title>
+  <link rel="stylesheet" href="../shared/theme.css">
+  <link rel="stylesheet" href="options.css">
 </head>
-<body>
-  <h1>DocSite Helper 配置</h1>
-  
-  <div class="option-group">
-    <h2>文档复制配置 (Ctrl+D)</h2>
-    <div class="description">配置从哪个产品的文档获取内容</div>
-    
-    <div class="form-row">
-      <label for="sourceBaseUrl">源文档基础 URL</label>
-      <input type="text" id="sourceBaseUrl" placeholder="例如: https://developer.mescius.com/document-solutions/java-excel-api/docs/online">
-      <div class="description">要获取文档的基础 URL，例如 Java 产品的英文文档地址</div>
-    </div>
-    
-    <div class="form-row">
-      <label for="sourceProductId">源产品 ID (可选)</label>
-      <input type="text" id="sourceProductId" placeholder="例如: 17ddf72d-a51a-42fe-a104-f69d4e8357fb">
-      <div class="description">要获取文档的产品 GUID，用于获取 TOC 结构，默认使用当前产品</div>
-    </div>
-    
-    <div class="form-row">
-      <label for="docApiUrl">文档 API URL</label>
-      <input type="text" id="docApiUrl" value="https://docs.grapecity.com.cn/documentsite/api">
-      <div class="description">文档 API 地址，一般不需要修改</div>
-    </div>
-    
-    <div class="form-row">
-      <label for="copyToClipboard">复制到剪贴板</label>
-      <input type="checkbox" id="copyToClipboard" checked>
-      <div class="description">是否将获取的 Markdown 内容复制到剪贴板</div>
-    </div>
-  </div>
-  
-  <div class="option-group">
-    <h2>链接处理规则配置</h2>
-    <div class="description">配置不同产品的API文档链接处理规则</div>
-    
-    <div class="form-row">
-      <label for="linkRules">链接处理规则 (JSON格式)</label>
-      <textarea id="linkRules" rows="10" placeholder='{
-  "java": {
-    "apiPathPattern": "/document-solutions/.*?/api/online/",
-    "replaceWith": "/"
-  },
-  "js": {
-    "apiPathPattern": "/api/",
-    "replaceWith": "/"
-  },
-  "csharp": {
+<body class="settings-page">
+  <main class="settings-shell">
+    <header class="settings-header surface motion-rise">
+      <div>
+        <p class="eyebrow">Extension settings</p>
+        <h1>Documentation Helper 配置</h1>
+        <p class="lead">把源站、链接规则和团队检查规则放在同一处管理。调整后会直接影响侧边栏里的搜索、复制和检查流程。</p>
+      </div>
+      <div class="settings-metrics" aria-hidden="true">
+        <span class="chip">DocSite</span>
+        <span class="chip">Host permissions</span>
+        <span class="chip">Custom rules</span>
+      </div>
+    </header>
+
+    <section class="settings-grid">
+      <section class="settings-card section motion-rise language-card">
+        <div class="section-head">
+          <div>
+            <p class="section-title">General</p>
+            <h2>界面语言</h2>
+          </div>
+          <span class="chip">UI</span>
+        </div>
+        <p class="lead">选择扩展界面显示语言。切换后会立即更新当前页面文案。</p>
+
+        <div class="field">
+          <label class="field-label" for="uiLanguage">语言 / Language</label>
+          <select id="uiLanguage">
+            <option value="cn">中文（CN）</option>
+            <option value="en">English (EN)</option>
+          </select>
+          <div class="field-note">这个选择会保存在配置中，并影响扩展的主要界面文案。</div>
+        </div>
+      </section>
+
+      <section class="settings-card section motion-rise copy-card">
+        <div class="section-head">
+          <div>
+            <p class="section-title">Document Copy</p>
+            <h2>文档复制配置</h2>
+          </div>
+          <span class="chip">Source</span>
+        </div>
+        <p class="lead">配置从哪个文档站点获取 Markdown 内容，以及是否自动复制到剪贴板。</p>
+
+        <div class="stack">
+          <div class="field">
+            <label class="field-label" for="sourceBaseUrl">源文档基础 URL</label>
+            <input type="text" id="sourceBaseUrl" placeholder="例如: https://example.com/product/docs/latest">
+            <div class="field-note">要获取文档的基础 URL，可填写任意可访问的源文档站地址。</div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="sourceProductId">源文档集 ID (可选)</label>
+            <input type="text" id="sourceProductId" placeholder="例如: 文档站 API 中的产品或版本 ID">
+            <div class="field-note">用于获取 TOC 结构；不填时默认使用当前页面所属文档集。</div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="docApiUrl">文档站 API URL</label>
+            <input type="text" id="docApiUrl" placeholder="例如: https://docs.example.com/documentsite/api">
+            <div class="field-note">留空时会根据当前 DocSite 页面的域名自动使用 /documentsite/api。</div>
+          </div>
+
+          <div class="field">
+            <label class="toggle-row" for="copyToClipboard">
+              <input type="checkbox" id="copyToClipboard" checked>
+              <span>复制到剪贴板</span>
+            </label>
+            <div class="field-note">是否将获取的 Markdown 内容复制到剪贴板。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-card section motion-rise link-card">
+        <div class="section-head">
+          <div>
+            <p class="section-title">Link Rules</p>
+            <h2>链接处理规则配置</h2>
+          </div>
+          <span class="chip">Routing</span>
+        </div>
+        <p class="lead">配置不同文档集的 API 链接和跨站链接转换规则，方便通用化到不同域名的 DocSite。</p>
+
+        <div class="stack">
+          <div class="field">
+            <label class="field-label" for="linkRules">API 链接处理规则 (JSON对象)</label>
+            <textarea id="linkRules" class="code-editor" rows="10" placeholder='{
+  "default": {
     "apiPathPattern": "/api/",
     "replaceWith": "/"
   }
 }'></textarea>
-      <div class="description">配置不同产品的API路径匹配规则，使用正则表达式匹配并替换路径</div>
-    </div>
-  </div>
-  
-  <div class="option-group">
-    <h2>文档重写配置</h2>
-    <div class="description">配置文档重写功能的Node服务器地址</div>
-    
-    <div class="form-row">
-      <label for="nodeServerUrl">Node Server 地址</label>
-      <input type="text" id="nodeServerUrl" placeholder="例如: http://127.0.0.1:3000">
-      <div class="description">文档重写服务的地址，用于重写demo doc文档</div>
-    </div>
-  </div>
-  
-  <div class="form-row">
-    <button type="button" id="saveBtn">保存配置</button>
-    <button type="button" id="resetBtn">重置为默认值</button>
-  </div>
-  
-  <div class="status" id="status"></div>
-  
-  <script src="options.js"></script>
+            <div class="field-note">按文档类型配置路径匹配和替换规则，找不到匹配类型时使用 default。</div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="linkLocalizationRules">跨站链接转换规则 (JSON数组)</label>
+            <textarea id="linkLocalizationRules" class="code-editor" rows="18" placeholder='[
+  {
+    "name": "Source docs to current docs",
+    "sourceHost": "docs.example.com",
+    "sourcePathPattern": "^/product/docs/(.*)$",
+    "targetRoot": "rootPath"
+  }
+]'></textarea>
+            <div class="field-note">将外部文档链接映射到当前文档站版本，再继续尝试转换为站内链接。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-card section check-card">
+        <div class="section-head">
+          <div>
+            <p class="section-title">Checks</p>
+            <h2>常规检查规则</h2>
+          </div>
+          <span class="chip">Policy</span>
+        </div>
+        <p class="lead">内置检查会覆盖 SPAN 标签、Base64、转义双星号和绝对链接；这里可以补充团队自己的关键词或正则。</p>
+
+        <div class="field">
+          <label class="field-label" for="customCheckRules">自定义检查规则 (JSON数组)</label>
+          <textarea id="customCheckRules" class="code-editor" rows="12" placeholder='[
+  {
+    "id": "brandName",
+    "name": "旧品牌名",
+    "keywords": ["OldBrand"],
+    "message": "包含旧品牌名"
+  },
+  {
+    "id": "translatedAttribute",
+    "name": "疑似误译属性",
+    "pattern": "类型\\s*=",
+    "flags": "g",
+    "message": "包含疑似误译属性"
+  }
+]'></textarea>
+          <div class="field-note">支持 keywords 或 pattern；设置 enabled:false 可临时禁用某条规则。</div>
+        </div>
+      </section>
+    </section>
+
+    <footer class="settings-footer motion-rise">
+      <div class="status" id="status"></div>
+      <div class="toolbar settings-actions">
+        <button type="button" id="saveBtn">保存配置</button>
+        <button type="button" id="resetBtn" class="secondary-button">重置为默认值</button>
+      </div>
+    </footer>
+  </main>
+
+  <script type="module" src="options.js"></script>
 </body>
 </html>

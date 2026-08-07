@@ -3,8 +3,27 @@ class DocsAPI {
   static cache = new Map();
   // 缓存过期时间（毫秒），默认 1 小时
   static CACHE_EXPIRY = 60 * 60 * 1000;
-  // API 基础 URL
-  static BASE_URL = 'https://docs.grapecity.com.cn/documentsite/api';
+  static DOC_API_PATH = '/documentsite/api';
+
+  static async getBaseUrl() {
+    return new Promise((resolve, reject) => {
+      chrome.storage.sync.get(['docSiteHelperConfig'], (result) => {
+        const configuredUrl = result.docSiteHelperConfig?.docApiUrl;
+        if (configuredUrl) {
+          resolve(configuredUrl.replace(/\/+$/, ''));
+          return;
+        }
+
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          try {
+            resolve(`${new URL(tabs[0]?.url).origin}${this.DOC_API_PATH}`);
+          } catch (error) {
+            reject(new Error('请在扩展配置页填写文档站 API URL，或先打开一个 DocSite 页面'));
+          }
+        });
+      });
+    });
+  }
 
   // 从缓存中获取数据
   static getFromCache(key) {
@@ -40,7 +59,7 @@ class DocsAPI {
    */
   static async request(endpoint, options = {}, errorMessage = 'API 请求失败') {
     try {
-      const url = `${this.BASE_URL}${endpoint}`;
+      const url = `${await this.getBaseUrl()}${endpoint}`;
       const config = {
         method: options.method || 'GET',
         headers: {

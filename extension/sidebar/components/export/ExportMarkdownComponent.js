@@ -1,13 +1,225 @@
 import BaseComponent from '../base/BaseComponent.js';
 import DocsAPI from '../../services/api.js';
 import URLUtils from '../../services/urlUtils.js';
-import { extractPreservedContent, mergeContent } from '../../../utils/contentMerger.js';
+import { getActiveLanguage } from '../../../shared/localization.js';
+
+const TEXTS = {
+  cn: {
+    exportMarkdown: '导出 Markdown',
+    redirectRecords: 'Redirect 记录',
+    exportSettings: '导出设置:',
+    createFolders: '按目录结构创建文件夹',
+    includeTitle: '包含页面标题',
+    exportStatus: '导出状态:',
+    ready: '准备就绪',
+    redirectReminder: '当前版本没有记录初始的 TOC 结构。调整 TOC 前请先下载并保存一份 TOC JSON，否则后续无法自动比对旧 URL。',
+    redirectReminderResolved: '已选择调整前 TOC JSON，本次比对具备初始结构。',
+    downloadCurrentToc: '下载当前 TOC',
+    tocCompare: 'TOC 对比:',
+    beforeToc: '调整前 TOC JSON',
+    afterToc: '调整后 TOC JSON',
+    chooseFile: '选择文件',
+    noFile: '尚未选择',
+    redirectSummaryInitial: '选择两份 TOC JSON 后生成 Redirect 记录',
+    generateRedirect: '生成 Redirect',
+    recordStatus: '记录状态:',
+    clearRecords: '清空记录',
+    startExport: '开始导出',
+    downloadToc: '下载 TOC',
+    exportJson: '导出 JSON',
+    exportCsv: '导出 CSV',
+    loadingJsZipError: '无法加载JSZip库，导出功能可能无法正常工作',
+    readingToc: '正在读取 TOC 文件...',
+    selectTocFiles: '请选择调整前和调整后的 TOC JSON 文件',
+    noPathChanges: '没有发现 documentPath 变化',
+    generatedRedirects: '已生成 {count} 条 Redirect 记录',
+    generateFailed: '生成失败: {message}',
+    noRedirects: '暂无 Redirect 记录',
+    oldPath: '旧',
+    newPath: '新',
+    delete: '删除',
+    deleted: 'Redirect 记录已删除',
+    noRecordsToClear: '没有可清空的 Redirect 记录',
+    clearConfirm: '确定清空 {count} 条 Redirect 记录？',
+    cleared: 'Redirect 记录已清空',
+    noRecordsToExport: '没有可导出的 Redirect 记录',
+    exported: 'Redirect 记录已导出',
+    exportFailed: '导出失败: {message}',
+    invalidJson: '{name} 不是有效的 JSON 文件',
+    cannotReadFile: '无法读取 {name}',
+    tocDiffNote: 'TOC diff 自动生成',
+    beforeCount: '调整前 {count} 个页面',
+    afterCount: '调整后 {count} 个页面',
+    changedCount: 'URL 变化 {count} 个',
+    insertedCount: '新增 {count} 条',
+    updatedCount: '更新 {count} 条',
+    untitledPage: '未命名页面',
+    downloading: '下载中...',
+    gettingToc: '正在获取TOC结构...',
+    downloadingCurrentToc: '正在下载当前 TOC 结构...',
+    tocDownloaded: 'TOC下载完成！',
+    currentTocDownloaded: '当前 TOC 已下载，请将它作为调整前 TOC JSON 保存',
+    tocDownloadDone: 'TOC下载完成',
+    tocExportFailed: 'TOC导出失败: {message}',
+    tocDownloadFailed: 'TOC 下载失败: {message}',
+    productIdMissing: '无法获取产品ID，请确保在文档编辑页面使用此扩展',
+    tocDataMissing: '无法获取TOC数据，请确保已加载文档结构',
+    jsZipMissing: 'JSZip库未加载，请稍后重试',
+    exporting: '导出中...',
+    preparingExport: '正在准备导出...',
+    exportDone: '导出完成！',
+    markdownExportDone: 'Markdown 导出完成',
+    generatingZip: '正在生成ZIP文件...',
+    generateZipFailed: '生成ZIP文件失败',
+    noMarkdown: '没有找到可导出的Markdown内容'
+  },
+  en: {
+    exportMarkdown: 'Export Markdown',
+    redirectRecords: 'Redirect records',
+    exportSettings: 'Export settings:',
+    createFolders: 'Create folders by directory structure',
+    includeTitle: 'Include page title',
+    exportStatus: 'Export status:',
+    ready: 'Ready',
+    redirectReminder: 'This version does not have the original TOC structure. Download and save the current TOC JSON before adjusting the TOC, otherwise old URLs cannot be compared automatically.',
+    redirectReminderResolved: 'The before-change TOC JSON is selected, so this comparison has the original structure.',
+    downloadCurrentToc: 'Download current TOC',
+    tocCompare: 'TOC comparison:',
+    beforeToc: 'Before-change TOC JSON',
+    afterToc: 'After-change TOC JSON',
+    chooseFile: 'Choose file',
+    noFile: 'No file selected',
+    redirectSummaryInitial: 'Select two TOC JSON files to generate redirect records',
+    generateRedirect: 'Generate redirects',
+    recordStatus: 'Record status:',
+    clearRecords: 'Clear records',
+    startExport: 'Start export',
+    downloadToc: 'Download TOC',
+    exportJson: 'Export JSON',
+    exportCsv: 'Export CSV',
+    loadingJsZipError: 'Unable to load JSZip. Export may not work correctly.',
+    readingToc: 'Reading TOC files...',
+    selectTocFiles: 'Please select both before-change and after-change TOC JSON files',
+    noPathChanges: 'No documentPath changes found',
+    generatedRedirects: 'Generated {count} redirect records',
+    generateFailed: 'Generation failed: {message}',
+    noRedirects: 'No redirect records',
+    oldPath: 'Old',
+    newPath: 'New',
+    delete: 'Delete',
+    deleted: 'Redirect record deleted',
+    noRecordsToClear: 'There are no redirect records to clear',
+    clearConfirm: 'Clear {count} redirect records?',
+    cleared: 'Redirect records cleared',
+    noRecordsToExport: 'There are no redirect records to export',
+    exported: 'Redirect records exported',
+    exportFailed: 'Export failed: {message}',
+    invalidJson: '{name} is not a valid JSON file',
+    cannotReadFile: 'Unable to read {name}',
+    tocDiffNote: 'Generated from TOC diff',
+    beforeCount: 'Before: {count} pages',
+    afterCount: 'After: {count} pages',
+    changedCount: 'URL changes: {count}',
+    insertedCount: 'Inserted {count}',
+    updatedCount: 'Updated {count}',
+    untitledPage: 'Untitled page',
+    downloading: 'Downloading...',
+    gettingToc: 'Fetching TOC structure...',
+    downloadingCurrentToc: 'Downloading current TOC structure...',
+    tocDownloaded: 'TOC downloaded.',
+    currentTocDownloaded: 'Current TOC downloaded. Save it as the before-change TOC JSON.',
+    tocDownloadDone: 'TOC download complete',
+    tocExportFailed: 'TOC export failed: {message}',
+    tocDownloadFailed: 'TOC download failed: {message}',
+    productIdMissing: 'Unable to get the product ID. Please use this extension on a documentation editor page.',
+    tocDataMissing: 'Unable to get TOC data. Make sure the documentation structure has loaded.',
+    jsZipMissing: 'JSZip is not loaded. Please try again later.',
+    exporting: 'Exporting...',
+    preparingExport: 'Preparing export...',
+    exportDone: 'Export complete.',
+    markdownExportDone: 'Markdown export complete',
+    generatingZip: 'Generating ZIP file...',
+    generateZipFailed: 'Failed to generate ZIP file',
+    noMarkdown: 'No exportable Markdown content found'
+  }
+};
+
+function formatMessage(template, params = {}) {
+  return String(template).replace(/\{(\w+)\}/g, (_, key) => {
+    const value = params[key];
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
 
 class ExportMarkdownComponent extends BaseComponent {
   constructor(progressBar) {
     super(progressBar);
     this.initContent();
     this.loadJSZip();
+  }
+
+  t(key, params = {}) {
+    const language = getActiveLanguage();
+    const template = TEXTS[language]?.[key] || TEXTS.cn[key] || key;
+    return formatMessage(template, params);
+  }
+
+  applyLanguage() {
+    if (!this.container) {
+      return;
+    }
+
+    const setText = (selector, value) => {
+      const element = this.container.querySelector(selector);
+      if (element) element.textContent = value;
+    };
+
+    setText('.export-tab-btn[data-tab="export-markdown"]', this.t('exportMarkdown'));
+    setText('.export-tab-btn[data-tab="redirect-records"]', this.t('redirectRecords'));
+    setText('label[for="export-with-folder"]', this.t('createFolders'));
+    setText('label[for="export-include-title"]', this.t('includeTitle'));
+    setText('#redirect-download-toc-btn', this.t('downloadCurrentToc'));
+    setText('#compare-toc-redirect-btn', this.t('generateRedirect'));
+    setText('#clear-redirects-btn', this.t('clearRecords'));
+    setText('#export-action-btn', this.t('startExport'));
+    setText('#export-toc-btn', this.t('downloadToc'));
+    setText('#export-redirect-json-btn', this.t('exportJson'));
+    setText('#export-redirect-csv-btn', this.t('exportCsv'));
+
+    const formLabels = this.container.querySelectorAll('.form-group > label, .form-title-row > label');
+    if (formLabels[0]) formLabels[0].textContent = this.t('exportSettings');
+    if (formLabels[1]) formLabels[1].textContent = this.t('exportStatus');
+    if (formLabels[2]) formLabels[2].textContent = this.t('tocCompare');
+    if (formLabels[3]) formLabels[3].textContent = this.t('recordStatus');
+
+    const tocTitles = this.container.querySelectorAll('.toc-file-title');
+    if (tocTitles[0]) tocTitles[0].textContent = this.t('beforeToc');
+    if (tocTitles[1]) tocTitles[1].textContent = this.t('afterToc');
+    this.container.querySelectorAll('.file-picker-action').forEach((element) => {
+      element.textContent = this.t('chooseFile');
+    });
+    this.container.querySelectorAll('.file-picker-name').forEach((element) => {
+      if (!element.textContent || element.textContent === TEXTS.cn.noFile || element.textContent === TEXTS.en.noFile) {
+        element.textContent = this.t('noFile');
+      }
+    });
+
+    const exportStatus = this.container.querySelector('#export-status p');
+    if (exportStatus && (exportStatus.textContent === TEXTS.cn.ready || exportStatus.textContent === TEXTS.en.ready)) {
+      exportStatus.textContent = this.t('ready');
+    }
+    const redirectStatus = this.container.querySelector('#redirect-status p');
+    if (redirectStatus && (redirectStatus.textContent === TEXTS.cn.ready || redirectStatus.textContent === TEXTS.en.ready)) {
+      redirectStatus.textContent = this.t('ready');
+    }
+
+    const summary = this.container.querySelector('#redirect-diff-summary');
+    if (summary && (summary.textContent === TEXTS.cn.redirectSummaryInitial || summary.textContent === TEXTS.en.redirectSummaryInitial)) {
+      summary.textContent = this.t('redirectSummaryInitial');
+    }
+
+    this.updateRedirectTocReminder();
+    this.renderRedirectRecords();
   }
 
   initContent() {
@@ -18,118 +230,91 @@ class ExportMarkdownComponent extends BaseComponent {
     const exportContent = document.createElement('div');
     exportContent.className = 'export-operations-content';
     exportContent.innerHTML = `
-      <div class="export-tabs">
-        <button class="export-tab-btn active" data-tab="export-markdown">导出 Markdown</button>
-        <button class="export-tab-btn" data-tab="rewrite-markdown">重写文档</button>
-        <button class="export-tab-btn" data-tab="export-params">批量导出参数</button>
+      <div class="export-tabs motion-rise">
+        <button class="export-tab-btn active" data-tab="export-markdown">${this.t('exportMarkdown')}</button>
+        <button class="export-tab-btn" data-tab="redirect-records">${this.t('redirectRecords')}</button>
       </div>
       
       <!-- 导出操作内容 -->
       <div class="export-content">
         <!-- 导出 Markdown 选项卡 -->
         <div class="export-tab-content active" id="export-markdown-tab">
-          <div class="form-group">
-            <label>导出设置:</label>
+          <div class="form-group motion-rise">
+            <label>${this.t('exportSettings')}</label>
             <div class="export-options">
               <div class="export-option">
                 <input type="checkbox" id="export-with-folder" checked>
-                <label for="export-with-folder">按目录结构创建文件夹</label>
+                <label for="export-with-folder">${this.t('createFolders')}</label>
               </div>
               <div class="export-option">
                 <input type="checkbox" id="export-include-title" checked>
-                <label for="export-include-title">包含页面标题</label>
+                <label for="export-include-title">${this.t('includeTitle')}</label>
               </div>
             </div>
           </div>
-          <div class="form-group">
-            <label>导出状态:</label>
+          <div class="form-group motion-rise">
+            <label>${this.t('exportStatus')}</label>
             <div class="export-status" id="export-status">
-              <p>准备就绪</p>
+              <p>${this.t('ready')}</p>
             </div>
           </div>
+        </div>
+
+        <!-- Redirect 记录选项卡 -->
+        <div class="export-tab-content" id="redirect-records-tab">
+          <div class="redirect-global-warning motion-rise" id="redirect-toc-reminder">
+            <span class="redirect-reminder-text">${this.t('redirectReminder')}</span>
+            <button class="link-button redirect-download-toc-btn" id="redirect-download-toc-btn" type="button">${this.t('downloadCurrentToc')}</button>
+          </div>
+          <div class="form-group motion-rise">
+            <label>${this.t('tocCompare')}</label>
+            <div class="redirect-form">
+              <div class="toc-diff-grid">
+                <label class="toc-file-input">
+                  <span class="toc-file-title">${this.t('beforeToc')}</span>
+                  <input type="file" id="redirect-before-toc-file" accept=".json,application/json">
+                  <span class="file-picker-shell">
+                    <span class="file-picker-action">${this.t('chooseFile')}</span>
+                    <span class="file-picker-name" id="redirect-before-file-name">${this.t('noFile')}</span>
+                  </span>
+                </label>
+                <label class="toc-file-input">
+                  <span class="toc-file-title">${this.t('afterToc')}</span>
+                  <input type="file" id="redirect-after-toc-file" accept=".json,application/json">
+                  <span class="file-picker-shell">
+                    <span class="file-picker-action">${this.t('chooseFile')}</span>
+                    <span class="file-picker-name" id="redirect-after-file-name">${this.t('noFile')}</span>
+                  </span>
+                </label>
+              </div>
+              <div class="redirect-summary" id="redirect-diff-summary">
+                ${this.t('redirectSummaryInitial')}
+              </div>
+              <div class="redirect-inline-actions">
+                <button class="secondary-btn primary" id="compare-toc-redirect-btn" type="button">${this.t('generateRedirect')}</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-group motion-rise">
+            <div class="form-title-row">
+              <label>${this.t('recordStatus')}</label>
+              <button class="link-button danger-link" id="clear-redirects-btn" type="button">${this.t('clearRecords')}</button>
+            </div>
+            <div class="export-status" id="redirect-status">
+              <p>${this.t('ready')}</p>
+            </div>
+          </div>
+          <div class="redirect-list motion-rise" id="redirect-list"></div>
         </div>
         
-        <!-- 重写文档选项卡 -->
-        <div class="export-tab-content" id="rewrite-markdown-tab">
-          <div class="form-group">
-            <label>重写设置:</label>
-            <div class="rewrite-options">
-              <div class="rewrite-option">
-                <input type="text" id="rewrite-download-url" placeholder="输入下载URL">
-                <label for="rewrite-download-url">下载 URL</label>
-              </div>
-              <div class="rewrite-option">
-                <button class="analyze-btn" id="analyze-jscodemine-btn">从当前页面分析 jscodemine 链接</button>
-                <label>分析链接</label>
-              </div>
-              <div class="rewrite-option">
-                <input type="checkbox" id="rewrite-force" checked>
-                <label for="rewrite-force">强制重写（清除缓存）</label>
-              </div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>分析结果:</label>
-            <div class="analyze-result" id="analyze-result">
-              <p>点击上方按钮从当前页面分析 jscodemine 链接</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>重写状态:</label>
-            <div class="rewrite-status" id="rewrite-status">
-              <p>准备就绪</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>重写进度:</label>
-            <div class="rewrite-progress" id="rewrite-progress">
-              <p>等待开始</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>重写结果:</label>
-            <div class="rewrite-result" id="rewrite-result">
-              <p>无结果</p>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 批量导出参数选项卡 -->
-        <div class="export-tab-content" id="export-params-tab">
-          <div class="form-group">
-            <label>导出设置:</label>
-            <div class="export-params-options">
-              <div class="export-params-option">
-                <input type="checkbox" id="export-params-include-jscodemine" checked>
-                <label for="export-params-include-jscodemine">包含 jscodemine 链接</label>
-              </div>
-              <div class="export-params-option">
-                <input type="checkbox" id="export-params-include-metadata" checked>
-                <label for="export-params-include-metadata">包含文档元数据</label>
-              </div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>导出状态:</label>
-            <div class="export-params-status" id="export-params-status">
-              <p>准备就绪</p>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>导出进度:</label>
-            <div class="export-params-progress" id="export-params-progress">
-              <p>等待开始</p>
-            </div>
-          </div>
-        </div>
       </div>
       
       <!-- 操作按钮 -->
-      <div class="export-actions">
-        <button class="export-confirm-btn" id="export-action-btn">开始导出</button>
-        <button class="export-confirm-btn" id="export-toc-btn">下载 TOC</button>
-        <button class="export-confirm-btn" id="rewrite-action-btn">开始重写</button>
-        <button class="export-confirm-btn" id="export-params-action-btn">批量导出参数</button>
+      <div class="export-actions motion-rise">
+        <button class="export-confirm-btn" id="export-action-btn">${this.t('startExport')}</button>
+        <button class="export-confirm-btn" id="export-toc-btn">${this.t('downloadToc')}</button>
+        <button class="export-confirm-btn" id="export-redirect-json-btn">${this.t('exportJson')}</button>
+        <button class="export-confirm-btn" id="export-redirect-csv-btn">${this.t('exportCsv')}</button>
       </div>
     `;
     
@@ -162,7 +347,7 @@ class ExportMarkdownComponent extends BaseComponent {
     };
     script.onerror = (error) => {
       console.error('Failed to load JSZip library:', error);
-      this.showError('无法加载JSZip库，导出功能可能无法正常工作');
+      this.showError(this.t('loadingJsZipError'));
     };
     document.head.appendChild(script);
   }
@@ -179,24 +364,36 @@ class ExportMarkdownComponent extends BaseComponent {
     if (exportTOCBtn) {
       exportTOCBtn.addEventListener('click', () => this.handleExportTOC());
     }
-    
-    // 绑定文档重写按钮事件
-    const rewriteBtn = this.container.querySelector('#rewrite-action-btn');
-    if (rewriteBtn) {
-      rewriteBtn.addEventListener('click', () => this.handleRewrite());
+
+    const redirectDownloadTocBtn = this.container.querySelector('#redirect-download-toc-btn');
+    if (redirectDownloadTocBtn) {
+      redirectDownloadTocBtn.addEventListener('click', () => this.handleExportTOC({ redirectContext: true }));
     }
-    
-    // 绑定分析jscodemine链接按钮事件
-    const analyzeBtn = this.container.querySelector('#analyze-jscodemine-btn');
-    if (analyzeBtn) {
-      analyzeBtn.addEventListener('click', () => this.analyzeJscodemineLinks());
+
+    const compareTocBtn = this.container.querySelector('#compare-toc-redirect-btn');
+    if (compareTocBtn) {
+      compareTocBtn.addEventListener('click', () => this.generateRedirectRecordsFromTocDiff());
     }
-    
-    // 绑定批量导出参数按钮事件
-    const exportParamsBtn = this.container.querySelector('#export-params-action-btn');
-    if (exportParamsBtn) {
-      exportParamsBtn.addEventListener('click', () => this.handleExportParams());
+
+    const exportRedirectJsonBtn = this.container.querySelector('#export-redirect-json-btn');
+    if (exportRedirectJsonBtn) {
+      exportRedirectJsonBtn.addEventListener('click', () => this.exportRedirectRecords('json'));
     }
+
+    const exportRedirectCsvBtn = this.container.querySelector('#export-redirect-csv-btn');
+    if (exportRedirectCsvBtn) {
+      exportRedirectCsvBtn.addEventListener('click', () => this.exportRedirectRecords('csv'));
+    }
+
+    const clearRedirectsBtn = this.container.querySelector('#clear-redirects-btn');
+    if (clearRedirectsBtn) {
+      clearRedirectsBtn.addEventListener('click', () => this.clearRedirectRecords());
+    }
+
+    this.bindRedirectFileInputs();
+
+    this.renderRedirectRecords();
+
   }
 
   // 绑定选项卡切换事件
@@ -215,461 +412,444 @@ class ExportMarkdownComponent extends BaseComponent {
         // 添加当前tab的active类
         btn.classList.add('active');
         document.getElementById(`${tabId}-tab`).classList.add('active');
+        this.updateActionButtons(tabId);
       });
+    });
+
+    this.updateActionButtons('export-markdown');
+  }
+
+  updateActionButtons(activeTab) {
+    const groups = {
+      'export-markdown': ['export-action-btn', 'export-toc-btn'],
+      'redirect-records': [
+        'export-redirect-json-btn',
+        'export-redirect-csv-btn'
+      ]
+    };
+
+    const allButtonIds = Object.values(groups).flat();
+    allButtonIds.forEach(id => {
+      const button = this.container.querySelector(`#${id}`);
+      if (button) {
+        button.style.display = groups[activeTab]?.includes(id) ? '' : 'none';
+      }
     });
   }
 
-  // 处理文档重写操作
-  async handleRewrite() {
-    try {
-      // 禁用重写按钮
-      const rewriteBtn = this.container.querySelector('#rewrite-action-btn');
-      if (rewriteBtn) {
-        rewriteBtn.disabled = true;
-        rewriteBtn.textContent = '重写中...';
+  bindRedirectFileInputs() {
+    [
+      ['redirect-before-toc-file', 'redirect-before-file-name'],
+      ['redirect-after-toc-file', 'redirect-after-file-name']
+    ].forEach(([inputId, nameId]) => {
+      const input = this.container.querySelector(`#${inputId}`);
+      const fileName = this.container.querySelector(`#${nameId}`);
+      if (!input || !fileName) {
+        return;
       }
 
-      // 获取下载URL
-      let downloadUrl = this.container.querySelector('#rewrite-download-url').value.trim();
-      if (!downloadUrl) {
-        throw new Error('请输入下载URL');
-      }
-
-      // 处理jscodemine链接，添加handler=DownloadProject参数
-      if (downloadUrl.includes('jscodemine.grapecity.com')) {
-        if (!downloadUrl.includes('?handler=DownloadProject')) {
-          // 检查是否已有查询参数
-          const separator = downloadUrl.includes('?') ? '&' : '?';
-          downloadUrl += `${separator}handler=DownloadProject`;
-        }
-      }
-
-      // 获取强制重写选项
-      const forceRewrite = this.container.querySelector('#rewrite-force').checked;
-
-      // 获取Node服务器地址
-      const config = await this.getConfig();
-      const SERVER_URL = config.nodeServerUrl;
-      if (!SERVER_URL) {
-        throw new Error('请在配置页面设置Node服务器地址');
-      }
-
-      // 如果强制重写，先清除缓存
-      if (forceRewrite) {
-        this.updateRewriteStatus('正在清除缓存...', 'info');
-        this.updateRewriteProgress('清除缓存中...');
-        
-        try {
-          // 发送清除缓存请求
-          const cacheResult = await new Promise((resolve) => {
-            chrome.runtime.sendMessage(
-              { 
-                type: 'clearCache', 
-                serverUrl: SERVER_URL,
-                downloadUrl: downloadUrl 
-              },
-              (response) => {
-                resolve(response);
-              }
-            );
-          });
-          
-          if (cacheResult && cacheResult.success) {
-            this.updateRewriteStatus('缓存清除成功，开始重写文档...', 'info');
-            this.updateRewriteProgress('缓存清除成功，开始重写...');
-          } else {
-            console.warn('缓存清除失败或无响应，继续执行重写');
-            this.updateRewriteStatus('缓存清除失败，继续重写文档...', 'info');
-            this.updateRewriteProgress('缓存清除失败，继续重写...');
-          }
-        } catch (cacheError) {
-          console.warn('清除缓存时出错，继续执行重写:', cacheError);
-          this.updateRewriteStatus('清除缓存时出错，继续重写文档...', 'info');
-          this.updateRewriteProgress('清除缓存时出错，继续重写...');
-        }
-      } else {
-        // 更新状态
-        this.updateRewriteStatus('正在重写文档...', 'info');
-        this.updateRewriteProgress('开始重写文档...');
-      }
-      
-      this.updateRewriteResult('无结果');
-
-      // 通过 background script 发送请求，避免 CORS 错误
-      const result = await new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          { 
-            type: 'rewriteDocument', 
-            serverUrl: SERVER_URL, 
-            downloadUrl: downloadUrl 
-          },
-          (response) => {
-            resolve(response);
-          }
-        );
+      input.addEventListener('change', () => {
+        fileName.textContent = input.files?.[0]?.name || this.t('noFile');
+        this.updateRedirectTocReminder();
       });
+    });
 
-      if (!result.success) {
-        throw new Error(result.error || '文档重写失败');
+    this.updateRedirectTocReminder();
+  }
+
+  updateRedirectTocReminder() {
+    const reminder = this.container.querySelector('#redirect-toc-reminder');
+    const reminderText = this.container.querySelector('.redirect-reminder-text');
+    const beforeFile = this.container.querySelector('#redirect-before-toc-file')?.files?.[0];
+    if (!reminder || !reminderText) {
+      return;
+    }
+
+    reminder.classList.toggle('is-resolved', Boolean(beforeFile));
+    reminderText.textContent = beforeFile
+      ? this.t('redirectReminderResolved')
+      : this.t('redirectReminder');
+  }
+
+  async generateRedirectRecordsFromTocDiff() {
+    try {
+      this.updateRedirectStatus(this.t('readingToc'), 'info');
+      const beforeFile = this.container.querySelector('#redirect-before-toc-file')?.files?.[0];
+      const afterFile = this.container.querySelector('#redirect-after-toc-file')?.files?.[0];
+
+      if (!beforeFile || !afterFile) {
+        throw new Error(this.t('selectTocFiles'));
       }
 
-      // 处理响应数据
-      const data = result.data;
-      const lines = data.split('\n');
-      let markdown = '';
+      const beforeToc = await this.readJsonFile(beforeFile);
+      const afterToc = await this.readJsonFile(afterFile);
+      const currentPageInfo = await this.getCurrentPageInfo().catch(() => ({}));
+      const diffRecords = this.compareTocRedirects(beforeToc, afterToc, currentPageInfo);
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const parsedData = JSON.parse(line.substring(6));
-            
-            if (parsedData.type === 'chunk') {
-              // 实时更新进度
-              markdown += parsedData.content;
-              this.updateRewriteProgress(`已生成 ${markdown.length} 字符...`);
-              this.updateRewriteResult(markdown);
-            } else if (parsedData.type === 'complete') {
-              // 生成完成
-              markdown = parsedData.result.content;
-              this.updateRewriteStatus('✓ 文档重写成功！', 'success');
-              this.updateRewriteProgress('重写完成');
-              this.updateRewriteResult(markdown);
-              
-              // 复制到剪贴板
-              try {
-                await navigator.clipboard.writeText(markdown);
-                this.showStatus('重写结果已复制到剪贴板', 'success');
-              } catch (clipboardError) {
-                console.warn('无法复制到剪贴板:', clipboardError);
-              }
-            } else if (parsedData.type === 'error') {
-              throw new Error(parsedData.error);
-            }
-          } catch (jsonError) {
-            console.warn('解析响应数据失败:', jsonError);
-          }
-        }
+      if (diffRecords.length === 0) {
+        this.updateRedirectStatus(this.t('noPathChanges'), 'info');
+        this.updateRedirectSummary({ changed: 0, beforeCount: this.countTocDocuments(beforeToc), afterCount: this.countTocDocuments(afterToc) });
+        return;
       }
 
-      // 如果没有处理任何数据，显示错误信息
-      if (!markdown) {
-        throw new Error('无法解析服务器响应数据');
-      }
+      const records = await this.getRedirectRecords();
+      const merged = this.mergeRedirectRecords(records, diffRecords);
+      await this.setRedirectRecords(merged.records);
+      await this.renderRedirectRecords();
 
-      // 获取当前页面需要保留的内容
-      const currentTab = await this.getCurrentTab();
-      const originalMarkdown = await this.getOriginalMarkdown(currentTab.id);
-      
-      // 拼接保留的内容到重写后的markdown末尾
-      if (originalMarkdown) {
-        markdown = mergeContent(markdown, originalMarkdown);
-        this.updateRewriteResult(markdown);
-      }
-
-      // 将拼接后的内容写回到当前页面的编辑器中
-      await this.writeMarkdownToEditor(currentTab.id, markdown);
-
+      this.updateRedirectStatus(this.t('generatedRedirects', { count: diffRecords.length }), 'success');
+      this.updateRedirectSummary({
+        changed: diffRecords.length,
+        beforeCount: this.countTocDocuments(beforeToc),
+        afterCount: this.countTocDocuments(afterToc),
+        inserted: merged.inserted,
+        updated: merged.updated
+      });
     } catch (error) {
-      console.error('文档重写失败:', error);
-      this.updateRewriteStatus(`✗ 重写失败`, 'error');
-      this.updateRewriteProgress('重写失败');
-      this.updateRewriteResult(error.message);
-      this.showError(`文档重写失败: ${error.message}`);
-    } finally {
-      // 启用重写按钮
-      const rewriteBtn = this.container.querySelector('#rewrite-action-btn');
-      if (rewriteBtn) {
-        rewriteBtn.disabled = false;
-        rewriteBtn.textContent = '开始重写';
-      }
+      console.error('生成 Redirect 失败:', error);
+      this.updateRedirectStatus(this.t('generateFailed', { message: error.message }), 'error');
     }
   }
 
-  // 获取当前标签页
-  async getCurrentTab() {
-    return new Promise((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        resolve(tabs[0]);
-      });
+  async renderRedirectRecords() {
+    const list = this.container.querySelector('#redirect-list');
+    if (!list) {
+      return;
+    }
+
+    const records = await this.getRedirectRecords();
+    if (records.length === 0) {
+      list.innerHTML = `<div class="empty-state">${this.t('noRedirects')}</div>`;
+      return;
+    }
+
+    list.innerHTML = records
+      .slice()
+      .reverse()
+      .map((record, index) => `
+        <div class="redirect-record motion-leave" data-id="${record.id}" style="--enter-order:${index}">
+          <div class="redirect-paths">
+            <div><span class="redirect-label">${this.t('oldPath')}</span><code>${this.escapeHtml(record.fromPath)}</code></div>
+            <div><span class="redirect-label">${this.t('newPath')}</span><code>${this.escapeHtml(record.toPath)}</code></div>
+          </div>
+          ${record.note ? `<div class="redirect-note">${this.escapeHtml(record.note)}</div>` : ''}
+          <div class="redirect-meta">${this.escapeHtml(this.getRedirectRecordTitle(record))} · ${new Date(record.updatedAt).toLocaleString()}</div>
+          <button class="link-button delete-redirect-btn" data-id="${record.id}">${this.t('delete')}</button>
+        </div>
+      `)
+      .join('');
+
+    list.querySelectorAll('.delete-redirect-btn').forEach(button => {
+      button.addEventListener('click', () => this.deleteRedirectRecord(button.dataset.id, button.closest('.redirect-record')));
     });
   }
 
-  // 获取当前页面的原始markdown内容
-  async getOriginalMarkdown(tabId) {
-    return new Promise((resolve) => {
-      chrome.scripting.executeScript(
-        {
-          target: { tabId: tabId },
-          func: () => {
-            // 获取当前页面的markdown内容
-            function getCurrentMarkdown() {
-              const editorContainer = document.querySelector('.toastui-editor.md-mode');
-              if (editorContainer) {
-                const textarea = editorContainer.querySelector('textarea');
-                if (textarea) {
-                  return textarea.value;
-                }
-              }
-              return '';
-            }
+  async deleteRedirectRecord(id, element) {
+    if (element) {
+      element.classList.add('is-leaving');
+    }
 
-            const currentMarkdown = getCurrentMarkdown();
-            console.log('获取到原始markdown内容，长度:', currentMarkdown.length);
-            return currentMarkdown;
-          }
-        },
-        (results) => {
-          if (results && results[0] && results[0].result) {
-            resolve(results[0].result);
-          } else {
-            resolve('');
-          }
+    await new Promise(resolve => setTimeout(resolve, 160));
+    const records = await this.getRedirectRecords();
+    await this.setRedirectRecords(records.filter(record => record.id !== id));
+    this.updateRedirectStatus(this.t('deleted'), 'success');
+    await this.renderRedirectRecords();
+  }
+
+  async clearRedirectRecords() {
+    const records = await this.getRedirectRecords();
+    if (records.length === 0) {
+      this.updateRedirectStatus(this.t('noRecordsToClear'), 'info');
+      return;
+    }
+
+    if (!confirm(this.t('clearConfirm', { count: records.length }))) {
+      return;
+    }
+
+    await this.setRedirectRecords([]);
+    this.updateRedirectStatus(this.t('cleared'), 'success');
+    await this.renderRedirectRecords();
+  }
+
+  async exportRedirectRecords(format) {
+    try {
+      const records = await this.getRedirectRecords();
+      if (records.length === 0) {
+        throw new Error(this.t('noRecordsToExport'));
+      }
+
+      if (format === 'csv') {
+        const csv = [
+          ['fromPath', 'toPath', 'oldTitle', 'newTitle', 'note', 'productId', 'pageType', 'tocItemId', 'origin', 'source', 'updatedAt'],
+          ...records.map(record => [
+            record.fromPath,
+            record.toPath,
+            record.oldTitle || record.title,
+            record.newTitle || record.title,
+            record.note,
+            record.productId,
+            record.pageType,
+            record.tocItemId,
+            record.origin,
+            record.source,
+            record.updatedAt
+          ])
+        ].map(row => row.map(value => `"${String(value || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+        this.downloadFile(`redirect-records-${Date.now()}.csv`, csv, 'text/csv;charset=utf-8;');
+      } else {
+        this.downloadFile(`redirect-records-${Date.now()}.json`, JSON.stringify(records, null, 2), 'application/json;charset=utf-8;');
+      }
+
+      this.updateRedirectStatus(this.t('exported'), 'success');
+    } catch (error) {
+      console.error('导出 Redirect 失败:', error);
+      this.updateRedirectStatus(this.t('exportFailed', { message: error.message }), 'error');
+    }
+  }
+
+  readJsonFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          resolve(JSON.parse(reader.result));
+        } catch (error) {
+          reject(new Error(this.t('invalidJson', { name: file.name })));
         }
-      );
+      };
+      reader.onerror = () => reject(new Error(this.t('cannotReadFile', { name: file.name })));
+      reader.readAsText(file);
     });
   }
 
-  // 获取当前页面需要保留的内容（用于其他可能的用途）
-  async getPreservedContent(tabId) {
-    const originalMarkdown = await this.getOriginalMarkdown(tabId);
-    if (!originalMarkdown) {
+  compareTocRedirects(beforeToc, afterToc, pageInfo = {}) {
+    const beforeItems = this.collectTocItems(beforeToc);
+    const afterItems = this.collectTocItems(afterToc);
+    const afterItemsById = new Map(afterItems.map(item => [item.id, item]));
+    const now = new Date().toISOString();
+
+    return beforeItems
+      .map(beforeItem => {
+        const afterItem = afterItemsById.get(beforeItem.id);
+        if (!afterItem || !beforeItem.documentPath || !afterItem.documentPath) {
+          return null;
+        }
+
+        const fromPath = this.normalizeRedirectPath(beforeItem.documentPath);
+        const toPath = this.normalizeRedirectPath(afterItem.documentPath);
+        if (!fromPath || !toPath || fromPath === toPath) {
+          return null;
+        }
+
+        return {
+          id: `toc-diff-${beforeItem.id}`,
+          fromPath,
+          toPath,
+          note: this.t('tocDiffNote'),
+          title: afterItem.title || beforeItem.title,
+          oldTitle: beforeItem.title,
+          newTitle: afterItem.title,
+          productId: pageInfo.productId || '',
+          pageType: pageInfo.pageType || '',
+          tocItemId: beforeItem.id,
+          origin: pageInfo.origin || '',
+          source: 'toc-diff',
+          createdAt: now,
+          updatedAt: now
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.fromPath.localeCompare(b.fromPath));
+  }
+
+  collectTocItems(tocData) {
+    const items = [];
+    const roots = this.getTocRoots(tocData);
+
+    const visit = (item) => {
+      if (!item || typeof item !== 'object') {
+        return;
+      }
+
+      const id = this.getTocItemId(item);
+      const documentPath = this.getTocItemDocumentPath(item);
+      if (id && documentPath) {
+        items.push({
+          id,
+          documentPath,
+          title: this.getTocItemTitle(item)
+        });
+      }
+
+      ['tocItemDrafts', 'children', 'items', 'subItems', 'subsections']
+        .flatMap(key => Array.isArray(item[key]) ? item[key] : [])
+        .forEach(visit);
+    };
+
+    roots.forEach(visit);
+    return items;
+  }
+
+  getTocRoots(tocData) {
+    if (Array.isArray(tocData)) {
+      return tocData;
+    }
+
+    if (!tocData || typeof tocData !== 'object') {
+      return [];
+    }
+
+    return tocData.tocItemDrafts ||
+      tocData.children ||
+      tocData.items ||
+      tocData.toc?.tocItemDrafts ||
+      tocData.demoToc?.tocItemDrafts ||
+      [];
+  }
+
+  getTocItemId(item) {
+    return String(item.tocItemId || item.id || item.guid || '').trim();
+  }
+
+  getTocItemTitle(item) {
+    return String(item.text || item.displayName || item.title || item.name || '').trim();
+  }
+
+  getTocItemDocumentPath(item) {
+    return String(item.documentPath || item.path || '').trim();
+  }
+
+  countTocDocuments(tocData) {
+    return this.collectTocItems(tocData).length;
+  }
+
+  mergeRedirectRecords(existingRecords, newRecords) {
+    const records = [...existingRecords];
+    let inserted = 0;
+    let updated = 0;
+
+    newRecords.forEach(newRecord => {
+      const existingIndex = records.findIndex(record =>
+        (newRecord.tocItemId && record.tocItemId === newRecord.tocItemId) ||
+        record.fromPath === newRecord.fromPath
+      );
+
+      if (existingIndex >= 0) {
+        records[existingIndex] = {
+          ...records[existingIndex],
+          ...newRecord,
+          id: records[existingIndex].id,
+          createdAt: records[existingIndex].createdAt || newRecord.createdAt,
+          updatedAt: newRecord.updatedAt
+        };
+        updated++;
+      } else {
+        records.push(newRecord);
+        inserted++;
+      }
+    });
+
+    return { records, inserted, updated };
+  }
+
+  async getCurrentPageInfo() {
+    const currentUrl = await URLUtils.getCurrentTabUrl();
+    return {
+      productId: URLUtils.getProductIDFromURL(currentUrl) || '',
+      pageType: URLUtils.getPageTypeFromURL(currentUrl) || '',
+      origin: new URL(currentUrl).origin
+    };
+  }
+
+  updateRedirectSummary(summary) {
+    const summaryDiv = this.container.querySelector('#redirect-diff-summary');
+    if (!summaryDiv) {
+      return;
+    }
+
+    const parts = [
+      this.t('beforeCount', { count: summary.beforeCount || 0 }),
+      this.t('afterCount', { count: summary.afterCount || 0 }),
+      this.t('changedCount', { count: summary.changed || 0 })
+    ];
+
+    if (summary.inserted || summary.updated) {
+      parts.push(this.t('insertedCount', { count: summary.inserted || 0 }));
+      parts.push(this.t('updatedCount', { count: summary.updated || 0 }));
+    }
+
+    summaryDiv.textContent = parts.join(' · ');
+  }
+
+  normalizeRedirectPath(path) {
+    const trimmedPath = path.trim();
+    if (!trimmedPath) {
       return '';
     }
-    return extractPreservedContent(originalMarkdown);
+
+    try {
+      return new URL(trimmedPath).pathname;
+    } catch (error) {
+      const pathOnly = trimmedPath.split('#')[0].split('?')[0];
+      return pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+    }
   }
 
-  // 将markdown内容写回到编辑器中
-  async writeMarkdownToEditor(tabId, markdown) {
+  async getRedirectRecords() {
     return new Promise((resolve) => {
-      chrome.scripting.executeScript(
-        {
-          target: { tabId: tabId },
-          func: (content) => {
-            // 查找编辑框容器
-            const editorContainer = document.querySelector('.toastui-editor.md-mode');
-            if (editorContainer) {
-              // 查找textarea元素
-              let textarea = editorContainer.querySelector('textarea');
-              if (!textarea) {
-                // 如果找不到textarea，尝试查找可能的隐藏textarea或其他输入元素
-                textarea = editorContainer.querySelector('textarea, input[type="text"]');
-              }
-              
-              if (textarea) {
-                // 设置textarea的值
-                textarea.value = content;
-                
-                // 触发input事件，让编辑器检测到内容变化
-                textarea.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-                
-                console.log('Markdown内容已成功写入编辑器');
-                return true;
-              }
-            }
-            console.log('无法找到编辑器元素');
-            return false;
-          },
-          args: [markdown]
-        },
-        (results) => {
-          if (results && results[0] && results[0].result) {
-            this.showStatus('重写后的内容已成功写入编辑器', 'success');
-          } else {
-            this.showStatus('无法写入编辑器，内容已复制到剪贴板', 'info');
-          }
-          resolve();
-        }
-      );
-    });
-  }
-
-  // 获取配置
-  async getConfig() {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get(['docSiteHelperConfig'], (result) => {
-        const config = result.docSiteHelperConfig || {};
-        resolve(config);
+      chrome.storage.local.get(['docSiteRedirectRecords'], (result) => {
+        resolve(Array.isArray(result.docSiteRedirectRecords) ? result.docSiteRedirectRecords : []);
       });
     });
   }
 
-  // 更新重写状态
-  updateRewriteStatus(message, type = 'info') {
-    const statusDiv = this.container.querySelector('#rewrite-status');
+  async setRedirectRecords(records) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set({ docSiteRedirectRecords: records }, resolve);
+    });
+  }
+
+  updateRedirectStatus(message, type = 'info') {
+    const statusDiv = this.container.querySelector('#redirect-status');
     if (statusDiv) {
-      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+      statusDiv.className = `export-status ${type}`;
+      statusDiv.innerHTML = `<p class="${type}">${this.escapeHtml(message)}</p>`;
     }
   }
 
-  // 更新重写进度
-  updateRewriteProgress(message) {
-    const progressDiv = this.container.querySelector('#rewrite-progress');
-    if (progressDiv) {
-      progressDiv.innerHTML = `<p>${message}</p>`;
+  getRedirectRecordTitle(record) {
+    if (record.oldTitle && record.newTitle && record.oldTitle !== record.newTitle) {
+      return `${record.oldTitle} -> ${record.newTitle}`;
     }
+
+    return record.newTitle || record.oldTitle || record.title || record.tocItemId || this.t('untitledPage');
   }
 
-  // 更新重写结果
-  updateRewriteResult(result) {
-    const resultDiv = this.container.querySelector('#rewrite-result');
-    if (resultDiv) {
-      resultDiv.innerHTML = `<pre>${result}</pre>`;
-    }
-  }
-
-  // 分析当前页面的jscodemine链接
-  async analyzeJscodemineLinks() {
-    try {
-      // 更新分析结果状态
-      this.updateAnalyzeResult('正在分析页面...');
-
-      // 获取当前标签页URL
-      const currentUrl = await URLUtils.getCurrentTabUrl();
-      const productID = URLUtils.getProductIDFromURL(currentUrl);
-      const pageType = URLUtils.getPageTypeFromURL(currentUrl);
-      
-      if (!productID) {
-        throw new Error('无法获取产品ID，请确保在文档编辑页面使用此扩展');
-      }
-
-      // 从URL中提取tocItemId
-      const urlParams = new URLSearchParams(currentUrl.split('?')[1] || '');
-      const tocItemId = urlParams.get('tocItemId');
-      
-      if (!tocItemId) {
-        throw new Error('无法获取页面ID，请确保在文档编辑页面使用此扩展');
-      }
-
-      // 获取TOC数据
-      const tocData = await this.getTOCData();
-      
-      // 从TOC数据中查找正确的ID
-      const tocItem = this.findTocItemById(tocData.tocItemDrafts, tocItemId);
-      
-      if (!tocItem || !tocItem.id) {
-        throw new Error('无法从TOC数据中找到页面信息，请确保文档结构已加载');
-      }
-      
-      console.log('找到的TOC项:', tocItem);
-      console.log('使用的页面ID:', tocItem.id);
-
-      // 获取当前页面的markdown内容
-      const docContent = await DocsAPI.getDocContent(tocItem.id, productID, pageType);
-      
-      if (!docContent || typeof docContent !== 'object') {
-        throw new Error('无法获取页面内容，API返回的数据格式不正确');
-      }
-
-      // 尝试从不同的属性中获取markdown内容
-      const markdown = docContent.markdownContent || docContent.content;
-      
-      if (!markdown) {
-        throw new Error('无法获取页面内容，API返回的数据中没有markdown内容');
-      }
-
-      // 分析jscodemine链接
-      const jscodemineLinks = this.extractJscodemineLinks(markdown);
-
-      if (jscodemineLinks.length === 0) {
-        this.updateAnalyzeResult('未找到jscodemine链接');
-        this.showStatus('未找到jscodemine链接', 'info');
-      } else {
-        // 显示分析结果
-        const linksText = jscodemineLinks.map((link, index) => `${index + 1}. ${link}`).join('\n');
-        this.updateAnalyzeResult(`找到 ${jscodemineLinks.length} 个jscodemine链接:\n${linksText}`);
-        
-        // 自动填充第一个链接到下载URL输入框
-        this.container.querySelector('#rewrite-download-url').value = jscodemineLinks[0];
-        
-        this.showStatus(`成功分析出 ${jscodemineLinks.length} 个jscodemine链接`, 'success');
-      }
-
-    } catch (error) {
-      console.error('分析jscodemine链接失败:', error);
-      this.updateAnalyzeResult(`分析失败: ${error.message}`);
-      this.showError(`分析失败: ${error.message}`);
-    }
-  }
-
-  // 递归查找TOC中指定ID的项
-  findTocItemById(tocData, targetId) {
-    // 处理数组类型的TOC
-    if (Array.isArray(tocData)) {
-      for (const item of tocData) {
-        const result = this.findTocItemById(item, targetId);
-        if (result) {
-          return result;
-        }
-      }
-    }
-    // 处理对象类型的TOC项
-    else if (typeof tocData === 'object' && tocData !== null) {
-      // 检查当前项
-      if (tocData.tocItemId === targetId || tocData.id === targetId) {
-        return tocData;
-      }
-      
-      // 递归检查子项
-      const childrenKeys = ['children', 'items', 'tocItemDrafts', 'subItems', 'subsections'];
-      for (const key of childrenKeys) {
-        if (tocData[key]) {
-          const result = this.findTocItemById(tocData[key], targetId);
-          if (result) {
-            return result;
-          }
-        }
-      }
-    }
-    
-    return null;
-  }
-
-  // 从markdown内容中提取jscodemine链接
-  extractJscodemineLinks(markdown) {
-    const links = [];
-    
-    // 1. 提取所有markdown链接
-    const linkRegex = /(?<!\!)\[(.*?)\]\((.*?)\)/g;
-    let match;
-    while ((match = linkRegex.exec(markdown)) !== null) {
-      const url = match[2];
-      if (url.includes('jscodemine')) {
-        links.push(url);
-      }
-    }
-    
-    // 2. 匹配codemineBlock中的链接
-    const codemineBlockRegex = /\$\$codemineBlock[\s\S]*?"exportedShaToken":"([^"]+)"[\s\S]*?\$\$/g;
-    while ((match = codemineBlockRegex.exec(markdown)) !== null) {
-      const token = match[1];
-      const codemineLink = `https://jscodemine.grapecity.com/share/${token}`;
-      links.push(codemineLink);
-    }
-    
-    // 3. 去重
-    return [...new Set(links)];
-  }
-
-  // 更新分析结果
-  updateAnalyzeResult(message) {
-    const resultDiv = this.container.querySelector('#analyze-result');
-    if (resultDiv) {
-      resultDiv.innerHTML = `<p>${message}</p>`;
-    }
+  escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   // 处理TOC导出操作
-  async handleExportTOC() {
+  async handleExportTOC({ redirectContext = false } = {}) {
     try {
       // 禁用下载TOC按钮
-      const exportTOCBtn = this.container.querySelector('#export-toc-btn');
-      if (exportTOCBtn) {
-        exportTOCBtn.disabled = true;
-        exportTOCBtn.textContent = '下载中...';
-      }
+      const tocButtons = this.container.querySelectorAll('#export-toc-btn, #redirect-download-toc-btn');
+      tocButtons.forEach(button => {
+        button.disabled = true;
+        button.textContent = this.t('downloading');
+      });
 
       // 更新状态
-      this.updateTOCExportStatus('正在获取TOC结构...', 'info');
+      this.updateTOCExportStatus(this.t('gettingToc'), 'info');
+      if (redirectContext) {
+        this.updateRedirectStatus(this.t('downloadingCurrentToc'), 'info');
+      }
 
       // 获取TOC结构
       const tocData = await this.getTOCData();
@@ -684,26 +864,35 @@ class ExportMarkdownComponent extends BaseComponent {
       this.downloadFile(fileName, tocJson);
 
       // 显示成功消息
-      this.updateTOCExportStatus('TOC下载完成！', 'success');
-      this.showStatus('TOC下载完成', 'success');
+      this.updateTOCExportStatus(this.t('tocDownloaded'), 'success');
+      if (redirectContext) {
+        this.updateRedirectStatus(this.t('currentTocDownloaded'), 'success');
+      }
+      this.showStatus(this.t('tocDownloadDone'), 'success');
     } catch (error) {
       console.error('TOC导出失败:', error);
-      this.updateTOCExportStatus(`TOC导出失败: ${error.message}`, 'error');
-      this.showError(`TOC导出失败: ${error.message}`);
+      this.updateTOCExportStatus(this.t('tocExportFailed', { message: error.message }), 'error');
+      if (redirectContext) {
+        this.updateRedirectStatus(this.t('tocDownloadFailed', { message: error.message }), 'error');
+      }
+      this.showError(this.t('tocExportFailed', { message: error.message }));
     } finally {
       // 启用下载TOC按钮
+      const tocButtons = this.container.querySelectorAll('#export-toc-btn, #redirect-download-toc-btn');
+      tocButtons.forEach(button => {
+        button.disabled = false;
+      });
       const exportTOCBtn = this.container.querySelector('#export-toc-btn');
-      if (exportTOCBtn) {
-        exportTOCBtn.disabled = false;
-        exportTOCBtn.textContent = '下载 TOC';
-      }
+      const redirectDownloadTocBtn = this.container.querySelector('#redirect-download-toc-btn');
+      if (exportTOCBtn) exportTOCBtn.textContent = this.t('downloadToc');
+      if (redirectDownloadTocBtn) redirectDownloadTocBtn.textContent = this.t('downloadCurrentToc');
     }
   }
 
   // 获取TOC数据
-  async getTOCData() {
+  async getTOCData(forceRefresh = false) {
     // 如果已有TOC数据，直接返回
-    if (this.tocData) {
+    if (this.tocData && !forceRefresh) {
       return this.tocData;
     }
 
@@ -719,7 +908,7 @@ class ExportMarkdownComponent extends BaseComponent {
       const pageType = URLUtils.getPageTypeFromURL(currentUrl);
       
       if (!productID) {
-        throw new Error('无法获取产品ID，请确保在文档编辑页面使用此扩展');
+        throw new Error(this.t('productIdMissing'));
       }
 
       // 获取文档版本信息
@@ -739,15 +928,16 @@ class ExportMarkdownComponent extends BaseComponent {
       return tocData;
     } catch (error) {
       console.error('获取TOC数据失败:', error);
-      throw new Error('无法获取TOC数据，请确保已加载文档结构');
+      throw new Error(this.t('tocDataMissing'));
     }
   }
 
   // 更新TOC导出状态
   updateTOCExportStatus(message, type = 'info') {
-    const statusDiv = this.container.querySelector('#toc-export-status');
+    const statusDiv = this.container.querySelector('#toc-export-status') || this.container.querySelector('#export-status');
     if (statusDiv) {
-      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+      statusDiv.className = `export-status ${type}`;
+      statusDiv.innerHTML = `<p class="${type}">${this.escapeHtml(message)}</p>`;
     }
   }
 
@@ -755,150 +945,9 @@ class ExportMarkdownComponent extends BaseComponent {
   updateExportStatus(message, type = 'info') {
     const statusDiv = this.container.querySelector('#export-status');
     if (statusDiv) {
-      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+      statusDiv.className = `export-status ${type}`;
+      statusDiv.innerHTML = `<p class="${type}">${this.escapeHtml(message)}</p>`;
     }
-  }
-
-  // 更新导出参数状态
-  updateExportParamsStatus(message, type = 'info') {
-    const statusDiv = this.container.querySelector('#export-params-status');
-    if (statusDiv) {
-      statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
-    }
-  }
-
-  // 更新导出参数进度
-  updateExportParamsProgress(message) {
-    const progressDiv = this.container.querySelector('#export-params-progress');
-    if (progressDiv) {
-      progressDiv.innerHTML = `<p>${message}</p>`;
-    }
-  }
-
-  // 处理批量导出参数操作
-  async handleExportParams() {
-    try {
-      // 禁用批量导出参数按钮
-      const exportParamsBtn = this.container.querySelector('#export-params-action-btn');
-      if (exportParamsBtn) {
-        exportParamsBtn.disabled = true;
-        exportParamsBtn.textContent = '导出中...';
-      }
-
-      // 获取导出选项
-      const includeJscodemine = this.container.querySelector('#export-params-include-jscodemine').checked;
-      const includeMetadata = this.container.querySelector('#export-params-include-metadata').checked;
-
-      // 更新状态
-      this.updateExportParamsStatus('正在准备导出参数...', 'info');
-      this.updateExportParamsProgress('开始收集文档参数...');
-
-      // 调用导出参数方法
-      await this.exportRewriteParams(includeJscodemine, includeMetadata);
-
-      // 显示成功消息
-      this.updateExportParamsStatus('导出参数完成！', 'success');
-      this.updateExportParamsProgress('导出参数完成');
-      this.showStatus('批量导出参数完成', 'success');
-    } catch (error) {
-      console.error('导出参数失败:', error);
-      this.updateExportParamsStatus(`导出失败: ${error.message}`, 'error');
-      this.updateExportParamsProgress('导出失败');
-      this.showError(`导出参数失败: ${error.message}`);
-    } finally {
-      // 启用批量导出参数按钮
-      const exportParamsBtn = this.container.querySelector('#export-params-action-btn');
-      if (exportParamsBtn) {
-        exportParamsBtn.disabled = false;
-        exportParamsBtn.textContent = '批量导出参数';
-      }
-    }
-  }
-
-  // 导出重写文档参数
-  async exportRewriteParams(includeJscodemine, includeMetadata) {
-    let paramsData = [];
-    let processedCount = 0;
-    let totalCount = 0;
-    
-    // 获取TOC数据以计算总文档数
-    const tocData = await this.getTOCData();
-    totalCount = this.countTocItems(tocData);
-    
-    // 使用 BaseComponent 的 processDocuments 方法处理所有文档
-    await this.processDocuments(async (docData) => {
-      const { content, item } = docData;
-      
-      if (!content || !content.markdownContent) {
-        console.warn(`跳过无内容的文档: ${item.text}`);
-        processedCount++;
-        this.updateExportParamsProgress(`处理中... ${processedCount}/${totalCount}`);
-        return;
-      }
-
-      // 构建文档参数对象
-      const docParams = {
-        id: item.tocItemId || item.id,
-        title: item.text,
-        path: item.documentPath || '',
-        metadata: includeMetadata ? {
-          level: item.level || 0,
-          isFolder: item.isFolder || false,
-          hasChildren: item.children && item.children.length > 0
-        } : {}
-      };
-
-      // 如果需要包含jscodemine链接，提取链接
-      if (includeJscodemine) {
-        const markdown = content.markdownContent;
-        const jscodemineLinks = this.extractJscodemineLinks(markdown);
-        docParams.jscodemineLinks = jscodemineLinks;
-      }
-
-      // 添加到参数数据数组
-      paramsData.push(docParams);
-      processedCount++;
-      this.updateExportParamsProgress(`处理中... ${processedCount}/${totalCount}`);
-    });
-
-    // 如果没有处理任何数据，显示错误信息
-    if (paramsData.length === 0) {
-      throw new Error('没有找到可导出的文档参数');
-    }
-
-    // 生成文件名
-    const fileName = `rewrite-params-${Date.now()}.json`;
-
-    // 转换为JSON格式
-    const paramsJson = JSON.stringify(paramsData, null, 2);
-
-    // 下载文件
-    this.downloadFile(fileName, paramsJson);
-  }
-
-  // 计算TOC中的项目数量
-  countTocItems(tocData) {
-    let count = 0;
-    
-    function traverse(items) {
-      if (Array.isArray(items)) {
-        items.forEach(item => {
-          count++;
-          if (item.children && Array.isArray(item.children)) {
-            traverse(item.children);
-          }
-        });
-      } else if (typeof tocData === 'object' && tocData !== null) {
-        if (tocData.tocItemDrafts && Array.isArray(tocData.tocItemDrafts)) {
-          traverse(tocData.tocItemDrafts);
-        } else if (tocData.children && Array.isArray(tocData.children)) {
-          traverse(tocData.children);
-        }
-      }
-    }
-    
-    traverse(tocData.tocItemDrafts || tocData.children || []);
-    return count;
   }
 
   // 处理导出操作
@@ -906,14 +955,14 @@ class ExportMarkdownComponent extends BaseComponent {
     try {
       // 检查JSZip是否加载
       if (!window.JSZip) {
-        throw new Error('JSZip库未加载，请稍后重试');
+        throw new Error(this.t('jsZipMissing'));
       }
 
       // 禁用导出按钮
       const exportBtn = this.container.querySelector('.export-confirm-btn');
       if (exportBtn) {
         exportBtn.disabled = true;
-        exportBtn.textContent = '导出中...';
+        exportBtn.textContent = this.t('exporting');
       }
 
       // 获取导出选项
@@ -921,24 +970,24 @@ class ExportMarkdownComponent extends BaseComponent {
       const includeTitle = this.container.querySelector('#export-include-title').checked;
 
       // 更新状态
-      this.updateExportStatus('正在准备导出...', 'info');
+      this.updateExportStatus(this.t('preparingExport'), 'info');
 
       // 调用导出方法
       await this.exportMarkdownFiles(createFolders, includeTitle);
 
       // 显示成功消息
-      this.updateExportStatus('导出完成！', 'success');
-      this.showStatus('Markdown 导出完成', 'success');
+      this.updateExportStatus(this.t('exportDone'), 'success');
+      this.showStatus(this.t('markdownExportDone'), 'success');
     } catch (error) {
       console.error('导出失败:', error);
-      this.updateExportStatus(`导出失败: ${error.message}`, 'error');
-      this.showError(`导出失败: ${error.message}`);
+      this.updateExportStatus(this.t('exportFailed', { message: error.message }), 'error');
+      this.showError(this.t('exportFailed', { message: error.message }));
     } finally {
       // 启用导出按钮
       const exportBtn = this.container.querySelector('.export-confirm-btn');
       if (exportBtn) {
         exportBtn.disabled = false;
-        exportBtn.textContent = '开始导出';
+        exportBtn.textContent = this.t('startExport');
       }
     }
   }
@@ -991,17 +1040,17 @@ class ExportMarkdownComponent extends BaseComponent {
 
     // 生成zip文件并下载
     if (fileCount > 0) {
-      this.updateExportStatus('正在生成ZIP文件...', 'info');
+      this.updateExportStatus(this.t('generatingZip'), 'info');
       
       try {
         const content = await zip.generateAsync({ type: 'blob' });
         this.downloadFile('markdown-export.zip', content);
       } catch (error) {
         console.error('生成ZIP文件失败:', error);
-        throw new Error('生成ZIP文件失败');
+        throw new Error(this.t('generateZipFailed'));
       }
     } else {
-      throw new Error('没有找到可导出的Markdown内容');
+      throw new Error(this.t('noMarkdown'));
     }
   }
 
@@ -1017,9 +1066,9 @@ class ExportMarkdownComponent extends BaseComponent {
   }
 
   // 下载文件
-  downloadFile(filename, content) {
+  downloadFile(filename, content, mimeType = 'text/markdown;charset=utf-8;') {
     // 创建 Blob
-    const blob = content instanceof Blob ? content : new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
     
     // 创建下载链接
     const link = document.createElement('a');

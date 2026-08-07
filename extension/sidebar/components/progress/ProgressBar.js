@@ -1,3 +1,25 @@
+import { getActiveLanguage } from '../../../shared/localization.js';
+
+const TEXTS = {
+  cn: {
+    progress: '处理进度：{current}/{total} ({percentage}%)',
+    speed: '速度：{speed} 个/秒 | 已用：{elapsed} | 剩余：{remaining}'
+  },
+  en: {
+    progress: 'Progress: {current}/{total} ({percentage}%)',
+    speed: 'Speed: {speed}/s | Elapsed: {elapsed} | Remaining: {remaining}'
+  }
+};
+
+function t(key, params = {}) {
+  const language = getActiveLanguage();
+  const template = TEXTS[language]?.[key] || TEXTS.cn[key] || key;
+  return String(template).replace(/\{(\w+)\}/g, (_, name) => {
+    const value = params[name];
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
+
 class ProgressBar {
   constructor(container) {
     this.container = document.querySelector(container);
@@ -44,6 +66,11 @@ class ProgressBar {
 
   start(total) {
     if (!this.container) return;
+
+    document.querySelector('.sidebar-shell')?.classList.add('is-compact');
+    window.dispatchEvent(new CustomEvent('docsite-sidebar-compact', {
+      detail: { compact: true, source: 'progress' }
+    }));
     
     this.startTime = Date.now();
     this.lastUpdateTime = Date.now();
@@ -69,7 +96,7 @@ class ProgressBar {
     
     // 更新进度文本
     const percentage = Math.round((current / total) * 100);
-    this.progressText.textContent = `处理进度：${current}/${total} (${percentage}%)`;
+    this.progressText.textContent = t('progress', { current, total, percentage });
     
     // 更新进度条
     this.progressBar.style.width = `${percentage}%`;
@@ -86,7 +113,11 @@ class ProgressBar {
       // 处理速度
       const speedText = this.speed.toFixed(1);
       
-      detailsText = `速度：${speedText} 个/秒 | 已用：${this.formatTime(elapsedTime)} | 剩余：${this.formatTime(remainingTime)}`;
+      detailsText = t('speed', {
+        speed: speedText,
+        elapsed: this.formatTime(elapsedTime),
+        remaining: this.formatTime(remainingTime)
+      });
     }
     
     this.statusDetails.textContent = detailsText;
