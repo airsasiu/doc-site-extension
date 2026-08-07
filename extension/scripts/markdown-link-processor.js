@@ -171,8 +171,7 @@ async function processImages(markdown, imageMatches, progressCallback, config = 
     
     // 上传图片
     try {
-      const newUrl = await uploadImage(imageUrl, rootId, config) ||
-        convertDocumentSiteFileUrlToInternal(imageUrl);
+      const newUrl = await uploadImage(imageUrl, rootId, config);
       
       if (newUrl) {
         const newImageMarkdown = `![${altText}](${newUrl})`;
@@ -618,6 +617,10 @@ async function processLinks(markdown, linkMatches, progressCallback, config = nu
 
 // 检查图片是否已经处理过
 function isImageAlreadyProcessed(url, config = {}) {
+  if (isPlaceholderDocumentSiteImageUrl(url)) {
+    return true;
+  }
+
   const docSiteOrigin = getDocSiteOrigin(config);
   return url.includes(`${docSiteOrigin}/documentsite/api/upload`) ||
          url.includes(`${docSiteOrigin}/document-site-files/`);
@@ -632,6 +635,20 @@ function isLinkAlreadyProcessed(url, config = {}) {
 // 检查 URL 是否为当前文档站点
 function isTargetDomain(url, config = {}) {
   return url.startsWith(`${getDocSiteOrigin(config)}/`);
+}
+
+function isPlaceholderDocumentSiteImageUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+
+  try {
+    return new URL(url, window.location.href)
+      .pathname
+      .startsWith('/DOCUMENT_SITE_LINK_PREFIX_HERE/document-site-files/');
+  } catch (error) {
+    return url.startsWith('/DOCUMENT_SITE_LINK_PREFIX_HERE/document-site-files/');
+  }
 }
 
 

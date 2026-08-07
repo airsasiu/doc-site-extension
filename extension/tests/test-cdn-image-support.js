@@ -54,6 +54,8 @@ const uploadResponseContext = {
 };
 vm.runInNewContext(
   [
+    'isImageAlreadyProcessed',
+    'isPlaceholderDocumentSiteImageUrl',
     'isUploadedImageUrl',
     'findUploadedImageUrl',
     'parseUploadResponse',
@@ -117,9 +119,18 @@ if (getMimeTypeFromUrl(mesciusPngUrl) !== 'image/png') {
   throw new Error('Mescius CDN PNG MIME type must be determined from the URL pathname');
 }
 
-const convertedMesciusPng = uploadResponseContext.convertDocumentSiteFileUrlToInternal(mesciusPngUrl);
-if (convertedMesciusPng !== '/DOCUMENT_SITE_LINK_PREFIX_HERE/document-site-files/images/b2223940-43c2-44cf-8eda-f5ab9acd84f0/image-20260722.6c6267.png?width=400') {
-  throw new Error('Mescius CDN document-site-files URLs must fall back to internal image links');
+if (uploadResponseContext.isImageAlreadyProcessed(mesciusPngUrl)) {
+  throw new Error('Mescius CDN document-site-files URLs must not be treated as already processed');
+}
+
+const placeholderInternalImageUrl = '/DOCUMENT_SITE_LINK_PREFIX_HERE/document-site-files/images/5fefd5d8-238b-4c13-893b-6f22fcc5b9dd/pt-ts-reference.50549c.png';
+if (!uploadResponseContext.isImageAlreadyProcessed(placeholderInternalImageUrl)) {
+  throw new Error('Placeholder document-site image URLs must be treated as already processed');
+}
+
+const convertedPlaceholderImageUrl = uploadResponseContext.convertDocumentSiteFileUrlToInternal(placeholderInternalImageUrl);
+if (convertedPlaceholderImageUrl !== placeholderInternalImageUrl) {
+  throw new Error('Placeholder document-site image URLs must remain unchanged');
 }
 
 if (!processorSource.includes('new URL(url).pathname')) {
