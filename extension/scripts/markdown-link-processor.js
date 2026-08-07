@@ -656,68 +656,65 @@ function isPlaceholderDocumentSiteImageUrl(url) {
 async function uploadImage(imageUrl, rootId, config = {}) {
   try {
     console.log('开始上传图片:', imageUrl);
-    
-    let blob;
     const fetchImageUrl = resolveImageUrl(imageUrl, config);
     console.log(`解析图片地址: ${imageUrl} -> ${fetchImageUrl}`);
-    
-    const response = fetchImageUrl.startsWith('data:')
-      ? { success: true, data: fetchImageUrl, mimeType: getMimeTypeFromDataUrl(fetchImageUrl) }
-      : await fetchImageViaBackground(fetchImageUrl);
-    
-    // 将 base64 转换回 blob
-    const base64Data = response.data.split(',')[1];
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    const mimeType = response.mimeType || getMimeTypeFromUrl(fetchImageUrl);
-    blob = new Blob([bytes], { type: mimeType });
-    
-    console.log('成功获取图片数据');
-    
-    // 获取并清理文件名
-    const originalFilename = getFilenameFromUrl(fetchImageUrl);
-    const cleanFilename = sanitizeFilename(originalFilename);
-    console.log(`清理文件名: ${originalFilename} -> ${cleanFilename}`);
-    
-    // 创建 FormData 对象
-    const formData = new FormData();
-    formData.append('file', blob, cleanFilename);
-    
-    // 添加 rootId
-    if (rootId) {
-      formData.append('rootId', rootId);
-    }
-    
-    // 上传到服务器
-    const uploadResponse = await fetch(`${getDocApiUrl(config)}/document/upload`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include'
-    });
-    
-    if (!uploadResponse.ok) {
-      throw new Error(`上传失败: ${uploadResponse.status}`);
-    }
-    
-    // 尝试解析响应
-    const responseText = await uploadResponse.text();
-    console.log('上传响应文本:', responseText);
-    
-    const uploadedUrl = parseUploadResponse(responseText);
-    if (uploadedUrl) {
-      return uploadedUrl;
+
+    if (fetchImageUrl.startsWith('data:')) {
+      const response = { success: true, data: fetchImageUrl, mimeType: getMimeTypeFromDataUrl(fetchImageUrl) };
+      return uploadImageFromDataUrl(response, rootId, config, fetchImageUrl);
     }
 
-    console.error('上传成功但返回的数据无效:', responseText);
-    return null;
+    return await uploadImageViaBackground(fetchImageUrl, rootId, config);
   } catch (error) {
     console.error('上传图片时出错:', error);
     return null;
   }
+}
+
+async function uploadImageFromDataUrl(response, rootId, config, fetchImageUrl) {
+  const base64Data = response.data.split(',')[1];
+  const binaryString = atob(base64Data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const mimeType = response.mimeType || getMimeTypeFromUrl(fetchImageUrl);
+  const blob = new Blob([bytes], { type: mimeType });
+
+  console.log('成功获取图片数据');
+
+  const originalFilename = getFilenameFromUrl(fetchImageUrl);
+  const cleanFilename = sanitizeFilename(originalFilename);
+  console.log(`清理文件名: ${originalFilename} -> ${cleanFilename}`);
+
+  const formData = new FormData();
+  formData.append('file', blob, cleanFilename);
+
+  if (rootId) {
+    formData.append('rootId', rootId);
+  }
+
+  const uploadResponse = await fetch(`${getDocApiUrl(config)}/document/upload`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include'
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`上传失败: ${uploadResponse.status}`);
+  }
+
+  const responseText = await uploadResponse.text();
+  console.log('上传响应文本:', responseText);
+
+  const uploadedUrl = parseUploadResponse(responseText);
+  if (uploadedUrl) {
+    return uploadedUrl;
+  }
+
+  console.error('上传成功但返回的数据无效:', responseText);
+  return null;
 }
 
 function parseUploadResponse(responseText) {
@@ -907,6 +904,34 @@ async function fetchImageViaBackground(url) {
       const errorMessage = response && response.error
         ? response.error
         : `background 未返回图片数据: ${url}`;
+      reject(new Error(errorMessage));
+    });
+  });
+}
+
+async function uploadImageViaBackground(imageUrl, rootId, config = {}) {
+  console.log('通过 background script 直接上传图片...', imageUrl);
+
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({
+      type: 'uploadImage',
+      url: imageUrl,
+      rootId,
+      docApiUrl: getDocApiUrl(config)
+    }, response => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(`Background 消息失败: ${chrome.runtime.lastError.message}`));
+        return;
+      }
+
+      if (response && response.success) {
+        resolve(response.data || null);
+        return;
+      }
+
+      const errorMessage = response && response.error
+        ? response.error
+        : `background 未返回图片上传结果: ${imageUrl}`;
       reject(new Error(errorMessage));
     });
   });

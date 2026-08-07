@@ -235,7 +235,7 @@ async function requestImageHostPermissions(tab, selectionText = null) {
 
   const missingOrigins = [];
   for (const origin of origins) {
-    const hasPermission = await chrome.permissions.contains({ origins: [origin] });
+    const hasPermission = await hasPermissionForOrigins([origin]);
     if (!hasPermission) {
       missingOrigins.push(origin);
     }
@@ -245,10 +245,22 @@ async function requestImageHostPermissions(tab, selectionText = null) {
     return;
   }
 
-  const granted = await chrome.permissions.request({ origins: missingOrigins });
+  const granted = await requestPermissionsForOrigins(missingOrigins);
   if (!granted) {
     throw new Error(`缺少图片域名访问权限: ${missingOrigins.join(', ')}`);
   }
+}
+
+function hasPermissionForOrigins(origins) {
+  return new Promise(resolve => {
+    chrome.permissions.contains({ origins }, resolve);
+  });
+}
+
+function requestPermissionsForOrigins(origins) {
+  return new Promise(resolve => {
+    chrome.permissions.request({ origins }, resolve);
+  });
 }
 
 async function getSelectedText(tabId) {
@@ -369,8 +381,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
-    ensureHostPermission(request.url)
-      .then(() => fetch(request.url, { credentials: 'include' }))
+    hasPermissionForUrl(request.url)
+      .then(hasPermission => {
+        if (!hasPermission) {
+          throw new Error(`缺少图片域名访问权限: ${new URL(request.url).origin}/*`);
+        }
+        return fetch(request.url, { credentials: 'include' });
+      })
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -397,6 +414,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     return true; // 保持消息通道打开
   }
+
+  if (request.type === 'uploadImage') {
+    if (!request.url) {
+      sendResponse({ success: false, error: '缺少图片 URL' });
+      return true;
+    }
+
+    uploadImageFromUrl(request.url, request.rootId, request.docApiUrl)
+      .then(uploadedUrl => {
+        sendResponse({ success: true, data: uploadedUrl });
+      })
+      .catch(error => {
+        console.error('上传图片失败:', error);
+        sendResponse({ success: false, error: `上传图片失败 (${request.url}): ${error.message}` });
+      });
+    return true;
+  }
   
   // 处理获取 Markdown 文档的请求
   if (request.type === 'fetchMarkdown') {
@@ -419,25 +453,138 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
 });
 
-async function ensureHostPermission(url) {
-  if (!chrome.permissions?.contains || !chrome.permissions?.request) {
-    return;
+async function uploadImageFromUrl(url, rootId, docApiUrl) {
+  const hasPermission = await hasPermissionForUrl(url);
+  if (!hasPermission) {
+    throw new Error(`缺少图片域名访问权限: ${new URL(url).origin}/*`);
   }
 
+  const response = await fetch(url, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const mimeType = response.headers.get('content-type') || getMimeTypeFromUrl(url);
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const blob = new Blob([bytes], { type: mimeType });
+
+  const formData = new FormData();
+  formData.append('file', blob, sanitizeFilename(getFilenameFromUrl(url)));
+  if (rootId) {
+    formData.append('rootId', rootId);
+  }
+
+  const uploadResponse = await fetch(`${String(docApiUrl || '').replace(/\/+$/, '')}/document/upload`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include'
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`上传失败: ${uploadResponse.status}`);
+  }
+
+  const responseText = await uploadResponse.text();
+  const uploadedUrl = parseUploadResponse(responseText);
+  if (!uploadedUrl) {
+    throw new Error('上传成功但返回的数据无效');
+  }
+
+  return uploadedUrl;
+}
+
+function hasPermissionForUrl(url) {
   let origin;
   try {
     origin = `${new URL(url).origin}/*`;
   } catch (error) {
-    return;
+    return Promise.resolve(false);
   }
 
-  const hasPermission = await chrome.permissions.contains({ origins: [origin] });
-  if (hasPermission) {
-    return;
+  return hasPermissionForOrigins([origin]);
+}
+
+function sanitizeFilename(filename) {
+  const fallback = `image-${Date.now()}.png`;
+  const safeFilename = String(filename || '').trim();
+  if (!safeFilename) {
+    return fallback;
   }
 
-  const granted = await chrome.permissions.request({ origins: [origin] });
-  if (!granted) {
-    throw new Error(`缺少图片域名访问权限: ${origin}`);
+  const lastDotIndex = safeFilename.lastIndexOf('.');
+  let name = lastDotIndex > 0 ? safeFilename.slice(0, lastDotIndex) : safeFilename;
+  let extension = lastDotIndex > 0 ? safeFilename.slice(lastDotIndex) : '';
+
+  name = name
+    .replace(/[%&=?+#]/g, '')
+    .replace(/[^\w\-\.]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  if (!name) {
+    name = `image-${Date.now()}`;
   }
+
+  if (!extension || !/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(extension)) {
+    extension = '.png';
+  }
+
+  return `${name}${extension}`;
+}
+
+function getFilenameFromUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    const filename = urlObj.pathname.split('/').pop();
+    return filename || `image-${Date.now()}.png`;
+  } catch (error) {
+    return `image-${Date.now()}.png`;
+  }
+}
+
+function getMimeTypeFromUrl(url) {
+  const pathname = (() => {
+    try {
+      return new URL(url).pathname;
+    } catch (error) {
+      return url || '';
+    }
+  })().toLowerCase();
+
+  if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) return 'image/jpeg';
+  if (pathname.endsWith('.gif')) return 'image/gif';
+  if (pathname.endsWith('.webp')) return 'image/webp';
+  if (pathname.endsWith('.svg')) return 'image/svg+xml';
+  if (pathname.endsWith('.png')) return 'image/png';
+  return 'application/octet-stream';
+}
+
+function parseUploadResponse(responseText) {
+  const trimmedText = String(responseText || '').trim();
+  if (!trimmedText) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmedText);
+    if (typeof parsed === 'string') {
+      return parsed.trim();
+    }
+
+    if (parsed && typeof parsed === 'object') {
+      for (const key of ['url', 'fileUrl', 'fileURL', 'path', 'link', 'href', 'data']) {
+        const value = parsed[key];
+        if (typeof value === 'string' && value.trim()) {
+          return value.trim();
+        }
+      }
+    }
+  } catch (error) {
+    if (/^https?:\/\//i.test(trimmedText) || trimmedText.startsWith('/')) {
+      return trimmedText;
+    }
+  }
+
+  return null;
 }
