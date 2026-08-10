@@ -1,64 +1,66 @@
 # Documentation Helper
 
-一个面向 DocSite 的浏览器扩展，用来做文档搜索、链接处理、Markdown 复制、图片上传、页面维护和 Redirect 记录整理。
+[简体中文](README.zh-CN.md)
 
-## 功能
+An extension for DocSite-style documentation workflows, covering content search, link handling, Markdown copy, image upload, page maintenance, and redirect tracking.
 
-- 内容搜索：按关键词搜索页面内容
-- 页面链接查找：按标题或 URL 过滤页面并复制链接
-- Markdown 处理：复制文档 Markdown、清理链接、格式化代码
-- 图片处理：上传图片并转换为内链
-- 页面维护：批量新增、批量删除页面
-- 文档检查：常规检查与自定义检查规则
-- 导出：导出 Markdown、TOC、Redirect 记录
-- Redirect 记录：比对调整前后 TOC，生成并导出重定向数据
+## Features
 
-## 安装
+- Content search: search page content by keywords
+- Page link search: filter pages by title or URL and copy links
+- Markdown tools: copy document Markdown, clean links, and format code
+- Image tools: upload images and convert them to internal links
+- Page maintenance: batch add and batch delete pages
+- Document checks: built-in checks and custom rules
+- Export: export Markdown, TOC, and redirect records
+- Redirect records: compare TOC before and after changes, then generate redirect data
 
-### 方式一：下载发布包
+## Install
 
-1. 打开 [Releases](https://github.com/airsasiu/doc-site-extension/releases)
-2. 下载 `documentation-helper-1.0.zip`
-3. 解压后，在 Chrome 或 Edge 中开启开发者模式
-4. 选择“加载已解压的扩展程序”，指向解压后的扩展目录
+### Option 1: Download the release package
 
-当前版本下载：
+1. Open [Releases](https://github.com/airsasiu/doc-site-extension/releases)
+2. Download `documentation-helper-1.0.zip`
+3. Unzip it, then enable Developer mode in Chrome or Edge
+4. Choose "Load unpacked" and select the extracted extension folder
+
+Current release:
 [documentation-helper-1.0.zip](https://github.com/airsasiu/doc-site-extension/releases/download/v1.0/documentation-helper-1.0.zip)
 
-### 方式二：本地开发
+### Option 2: Local development
 
-1. 克隆仓库
-2. 在浏览器扩展管理页开启开发者模式
-3. 加载 `extension` 目录
+1. Clone the repository
+2. Enable Developer mode in the browser extension page
+3. Load the `extension` directory
 
-## 配置
+## Configuration
 
-打开扩展的 `Options` 页面后，建议先配置这些项：
+Open the extension `Options` page and set these items first:
 
-- `sourceBaseUrl`：源文档站基础地址
-- `sourceProductId`：源文档集 ID
-- `docApiUrl`：文档站 API 地址
-- `linkRules`：API 链接处理规则
-- `linkLocalizationRules`：跨站链接转换规则
-- `customCheckRules`：自定义检查规则
+- `sourceBaseUrl`: base URL of the source documentation site
+- `sourceProductId`: source documentation product ID
+- `docApiUrl`: documentation site API URL
+- `linkRules`: rules for API link handling
+- `linkLocalizationRules`: rules for cross-site link conversion
+- `customCheckRules`: custom check rules
 
-## 快捷键
+## Shortcuts
 
-- `Alt+Shift+F`：格式化选中代码
-- `Alt+Shift+U`：上传 Markdown 中的图片
-- `Alt+Shift+D`：复制文档 Markdown
-- `Alt+Shift+Y`：清理选中文本中的链接 URL
+- `Alt+Shift+F`: format selected code
+- `Alt+Shift+U`: upload images in Markdown
+- `Alt+Shift+D`: copy document Markdown
+- `Alt+Shift+Y`: remove link URLs from selected text
 
-## 开发
+## Development
 
-扩展主体代码在 `extension/` 目录下。
+The main extension code lives in `extension/`.
 
-- `background.js`：命令入口
-- `sidebar/`：侧边栏 UI 和功能组件
-- `options/`：配置页
-- `scripts/`：页面注入脚本
-- `help/`：帮助页
+- `background.js`: command entry point
+- `sidebar/`: sidebar UI and feature components
+- `options/`: settings page
+- `scripts/`: injected page scripts
+- `help/`: help pages
 
-## 备注
+## Notes
 
-这个项目最初是为内部 DocSite 工作流做的，后续已经尽量抽象成通用扩展。
+This project started as an internal DocSite workflow tool and has been gradually generalized for broader use.
