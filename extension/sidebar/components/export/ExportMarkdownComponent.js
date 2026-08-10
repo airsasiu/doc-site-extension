@@ -27,7 +27,8 @@ const TEXTS = {
     startExport: '开始导出',
     downloadToc: '下载 TOC',
     exportJson: '导出 JSON',
-    exportCsv: '导出 CSV',
+    openOriginPage: '打开旧页面',
+    openTargetPage: '打开新页面',
     loadingJsZipError: '无法加载JSZip库，导出功能可能无法正常工作',
     readingToc: '正在读取 TOC 文件...',
     selectTocFiles: '请选择调整前和调整后的 TOC JSON 文件',
@@ -96,7 +97,8 @@ const TEXTS = {
     startExport: 'Start export',
     downloadToc: 'Download TOC',
     exportJson: 'Export JSON',
-    exportCsv: 'Export CSV',
+    openOriginPage: 'Open old page',
+    openTargetPage: 'Open new page',
     loadingJsZipError: 'Unable to load JSZip. Export may not work correctly.',
     readingToc: 'Reading TOC files...',
     selectTocFiles: 'Please select both before-change and after-change TOC JSON files',
@@ -184,7 +186,6 @@ class ExportMarkdownComponent extends BaseComponent {
     setText('#export-action-btn', this.t('startExport'));
     setText('#export-toc-btn', this.t('downloadToc'));
     setText('#export-redirect-json-btn', this.t('exportJson'));
-    setText('#export-redirect-csv-btn', this.t('exportCsv'));
 
     const formLabels = this.container.querySelectorAll('.form-group > label, .form-title-row > label');
     if (formLabels[0]) formLabels[0].textContent = this.t('exportSettings');
@@ -314,7 +315,6 @@ class ExportMarkdownComponent extends BaseComponent {
         <button class="export-confirm-btn" id="export-action-btn">${this.t('startExport')}</button>
         <button class="export-confirm-btn" id="export-toc-btn">${this.t('downloadToc')}</button>
         <button class="export-confirm-btn" id="export-redirect-json-btn">${this.t('exportJson')}</button>
-        <button class="export-confirm-btn" id="export-redirect-csv-btn">${this.t('exportCsv')}</button>
       </div>
     `;
     
@@ -377,12 +377,7 @@ class ExportMarkdownComponent extends BaseComponent {
 
     const exportRedirectJsonBtn = this.container.querySelector('#export-redirect-json-btn');
     if (exportRedirectJsonBtn) {
-      exportRedirectJsonBtn.addEventListener('click', () => this.exportRedirectRecords('json'));
-    }
-
-    const exportRedirectCsvBtn = this.container.querySelector('#export-redirect-csv-btn');
-    if (exportRedirectCsvBtn) {
-      exportRedirectCsvBtn.addEventListener('click', () => this.exportRedirectRecords('csv'));
+      exportRedirectJsonBtn.addEventListener('click', () => this.exportRedirectRecords());
     }
 
     const clearRedirectsBtn = this.container.querySelector('#clear-redirects-btn');
@@ -422,10 +417,7 @@ class ExportMarkdownComponent extends BaseComponent {
   updateActionButtons(activeTab) {
     const groups = {
       'export-markdown': ['export-action-btn', 'export-toc-btn'],
-      'redirect-records': [
-        'export-redirect-json-btn',
-        'export-redirect-csv-btn'
-      ]
+      'redirect-records': ['export-redirect-json-btn']
     };
 
     const allButtonIds = Object.values(groups).flat();
@@ -484,6 +476,13 @@ class ExportMarkdownComponent extends BaseComponent {
       const beforeToc = await this.readJsonFile(beforeFile);
       const afterToc = await this.readJsonFile(afterFile);
       const currentPageInfo = await this.getCurrentPageInfo().catch(() => ({}));
+      if (currentPageInfo.productId) {
+        const versionInfo = await DocsAPI.getDocVersions(currentPageInfo.productId).catch(() => null);
+        if (versionInfo) {
+          currentPageInfo.rootPath = this.getVersionRootPath(versionInfo, currentPageInfo.pageType);
+          currentPageInfo.origin = await this.getVersionOrigin(versionInfo, currentPageInfo.origin);
+        }
+      }
       const diffRecords = this.compareTocRedirects(beforeToc, afterToc, currentPageInfo);
 
       if (diffRecords.length === 0) {
@@ -534,11 +533,18 @@ class ExportMarkdownComponent extends BaseComponent {
           </div>
           ${record.note ? `<div class="redirect-note">${this.escapeHtml(record.note)}</div>` : ''}
           <div class="redirect-meta">${this.escapeHtml(this.getRedirectRecordTitle(record))} · ${new Date(record.updatedAt).toLocaleString()}</div>
-          <button class="link-button delete-redirect-btn" data-id="${record.id}">${this.t('delete')}</button>
+          <div class="redirect-actions">
+            <button class="link-button open-redirect-btn" data-id="${record.id}" data-path="fromPath">${this.t('openOriginPage')}</button>
+            <button class="link-button open-redirect-btn" data-id="${record.id}" data-path="toPath">${this.t('openTargetPage')}</button>
+            <button class="link-button delete-redirect-btn" data-id="${record.id}">${this.t('delete')}</button>
+          </div>
         </div>
       `)
       .join('');
 
+    list.querySelectorAll('.open-redirect-btn').forEach(button => {
+      button.addEventListener('click', () => this.openRedirectPage(button.dataset.id, button.dataset.path));
+    });
     list.querySelectorAll('.delete-redirect-btn').forEach(button => {
       button.addEventListener('click', () => this.deleteRedirectRecord(button.dataset.id, button.closest('.redirect-record')));
     });
@@ -572,34 +578,22 @@ class ExportMarkdownComponent extends BaseComponent {
     await this.renderRedirectRecords();
   }
 
-  async exportRedirectRecords(format) {
+  async exportRedirectRecords() {
     try {
       const records = await this.getRedirectRecords();
       if (records.length === 0) {
         throw new Error(this.t('noRecordsToExport'));
       }
 
-      if (format === 'csv') {
-        const csv = [
-          ['fromPath', 'toPath', 'oldTitle', 'newTitle', 'note', 'productId', 'pageType', 'tocItemId', 'origin', 'source', 'updatedAt'],
-          ...records.map(record => [
-            record.fromPath,
-            record.toPath,
-            record.oldTitle || record.title,
-            record.newTitle || record.title,
-            record.note,
-            record.productId,
-            record.pageType,
-            record.tocItemId,
-            record.origin,
-            record.source,
-            record.updatedAt
-          ])
-        ].map(row => row.map(value => `"${String(value || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-        this.downloadFile(`redirect-records-${Date.now()}.csv`, csv, 'text/csv;charset=utf-8;');
-      } else {
-        this.downloadFile(`redirect-records-${Date.now()}.json`, JSON.stringify(records, null, 2), 'application/json;charset=utf-8;');
-      }
+      const exportRecords = records
+        .map(record => ({
+          originPath: record.fromPath || '',
+          targetPath: record.toPath || '',
+          type: 1
+        }))
+        .sort((a, b) => a.originPath.localeCompare(b.originPath));
+
+      this.downloadFile(`redirect-records-${Date.now()}.json`, JSON.stringify(exportRecords, null, 2), 'application/json;charset=utf-8;');
 
       this.updateRedirectStatus(this.t('exported'), 'success');
     } catch (error) {
@@ -654,6 +648,7 @@ class ExportMarkdownComponent extends BaseComponent {
           pageType: pageInfo.pageType || '',
           tocItemId: beforeItem.id,
           origin: pageInfo.origin || '',
+          rootPath: pageInfo.rootPath || '',
           source: 'toc-diff',
           createdAt: now,
           updatedAt: now
@@ -762,6 +757,86 @@ class ExportMarkdownComponent extends BaseComponent {
     };
   }
 
+  getVersionRootPath(versionInfo, pageType) {
+    if (!versionInfo || typeof versionInfo !== 'object') {
+      return '';
+    }
+
+    if (pageType === 'DemoEdit') {
+      return versionInfo.demoRootPath || versionInfo.rootPath || '';
+    }
+
+    return versionInfo.rootPath || versionInfo.demoRootPath || '';
+  }
+
+  async getVersionOrigin(versionInfo, fallbackOrigin = '') {
+    if (!versionInfo || typeof versionInfo !== 'object') {
+      return fallbackOrigin;
+    }
+
+    const rootPath = versionInfo.rootPath || versionInfo.demoRootPath || '';
+    if (/^https?:\/\//i.test(rootPath)) {
+      try {
+        return new URL(rootPath).origin;
+      } catch (error) {
+        // fall back to domain below
+      }
+    }
+
+    const configuredOrigin = await this.getConfiguredDocsOrigin();
+    if (configuredOrigin) {
+      return configuredOrigin;
+    }
+
+    const domain = String(versionInfo.domain || '').trim();
+    if (!domain) {
+      return fallbackOrigin;
+    }
+
+    if (/^https?:\/\//i.test(domain)) {
+      return new URL(domain).origin;
+    }
+
+    return `https://${domain.replace(/^\/+|\/+$/g, '')}`;
+  }
+
+  async getConfiguredDocsOrigin() {
+    const config = await this.getStoredHelperConfig();
+    const candidates = [
+      config.sourceBaseUrl,
+      config.docApiUrl
+    ];
+
+    for (const candidate of candidates) {
+      const origin = this.getOrigin(candidate);
+      if (origin) {
+        return origin;
+      }
+    }
+
+    return '';
+  }
+
+  getOrigin(url) {
+    if (!url) {
+      return '';
+    }
+
+    try {
+      return new URL(url).origin;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  async getStoredHelperConfig() {
+    return new Promise((resolve) => {
+      chrome.storage.sync.get(['docSiteHelperConfig'], (result) => {
+        resolve(result.docSiteHelperConfig || {});
+      });
+    });
+  }
+
   updateRedirectSummary(summary) {
     const summaryDiv = this.container.querySelector('#redirect-diff-summary');
     if (!summaryDiv) {
@@ -808,6 +883,91 @@ class ExportMarkdownComponent extends BaseComponent {
     return new Promise((resolve) => {
       chrome.storage.local.set({ docSiteRedirectRecords: records }, resolve);
     });
+  }
+
+  async openRedirectPage(recordId, pathKey) {
+    try {
+      const records = await this.getRedirectRecords();
+      const record = records.find(item => item.id === recordId);
+      if (!record) {
+        return;
+      }
+
+      const url = await this.buildRedirectPageUrl(record, pathKey);
+      if (!url) {
+        return;
+      }
+
+      chrome.tabs.create({ url, active: true });
+    } catch (error) {
+      console.error('打开 Redirect 页面失败:', error);
+    }
+  }
+
+  async buildRedirectPageUrl(record, pathKey) {
+    if (!record || !pathKey) {
+      return '';
+    }
+
+    const documentPath = record[pathKey];
+    if (!documentPath) {
+      return '';
+    }
+
+    let origin = await this.getConfiguredDocsOrigin();
+    if (!origin) {
+      origin = record.origin || window.location.origin;
+    }
+    let rootPath = record.rootPath || '';
+
+    if (!rootPath && record.productId) {
+      const versionInfo = await DocsAPI.getDocVersions(record.productId).catch(() => null);
+      if (versionInfo) {
+        rootPath = rootPath || this.getVersionRootPath(versionInfo, record.pageType);
+      }
+    }
+
+    return this.buildDocumentUrlWithRoot(origin, rootPath, documentPath);
+  }
+
+  buildDocumentUrlWithRoot(origin, rootPath, documentPath) {
+    const normalizedPath = URLUtils.normalizeDocumentPath(documentPath);
+    if (!normalizedPath) {
+      return '';
+    }
+
+    const normalizedRoot = URLUtils.normalizeDocumentPath(rootPath);
+    if (!normalizedRoot || this.isPathWithinRoot(normalizedPath, normalizedRoot)) {
+      return URLUtils.buildDocumentUrl(origin, normalizedPath);
+    }
+
+    const rootBasePath = this.getRootBasePath(normalizedRoot);
+    const relativePath = rootBasePath && this.isPathWithinRoot(normalizedPath, rootBasePath)
+      ? normalizedPath.slice(rootBasePath.length)
+      : normalizedPath.replace(/^\/+/, '');
+    const rootedPath = `${normalizedRoot.replace(/\/+$/, '')}/${relativePath.replace(/^\/+/, '')}`;
+
+    return URLUtils.buildDocumentUrl(origin, rootedPath);
+  }
+
+  getRootBasePath(rootPath) {
+    const normalizedRoot = URLUtils.normalizeDocumentPath(rootPath);
+    const versionMatch = normalizedRoot.match(/^(.*\/)v\d+(?:\.\d+)*(?:\/|$)/i);
+    if (versionMatch) {
+      return versionMatch[1];
+    }
+
+    return normalizedRoot.endsWith('/') ? normalizedRoot : `${normalizedRoot}/`;
+  }
+
+  isPathWithinRoot(path, rootPath) {
+    const normalizedPath = URLUtils.normalizeDocumentPath(path).toLowerCase();
+    const normalizedRoot = URLUtils.normalizeDocumentPath(rootPath).replace(/\/+$/, '').toLowerCase();
+    return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
+  }
+
+  isEditorOrigin(origin) {
+    return /docapp\./i.test(String(origin || ''));
   }
 
   updateRedirectStatus(message, type = 'info') {
